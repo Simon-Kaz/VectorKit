@@ -19,6 +19,10 @@ env/
 *.pem
 .env
 
+# Pi boot-partition staging files that carry secrets (password hash, Wi-Fi).
+# Only the sanitized templates (*.example) are tracked.
+infra/raspberry-pi/boot-files/userconf.txt
+
 # Editor / OS
 .DS_Store
 *.swp
