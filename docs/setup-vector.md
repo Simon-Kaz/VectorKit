@@ -33,17 +33,33 @@ is NOT enough.
 
 ### OSKR / dev-unlocked bot
 
-OSKR bots are already dev-unlocked, so there is no `ep` flash and no recovery
-step -- they are unlocked with an SSH key instead. wire-pod's web UI even notes
-a firmware warning here "can be ignored"; the OSKR path needs firmware >= 1.4.
+OSKR bots are already dev-unlocked. The intended path is to SSH in and run
+wire-pod's `setup.sh scp <bot-ip> <ssh-key>`, which writes the escapepod cert +
+`server_config.json` onto the bot so it talks to `escapepod.local`. This needs
+the bot's root SSH key.
 
-Order matters, and it is the reverse of the retail flow: do the SSH-key step
-FIRST, then authenticate. Going straight to the `wpsetup` link before the bot
-is set up makes that page reset and do nothing.
+**If you HAVE the SSH key:** run `setup.sh scp` and skip ahead to section 4.
 
-1. In Bot Setup, under **"Configure an OSKR/dev-unlocked robot"**, enter the
-   bot's IP address, upload the bot's SSH key, and click **Set up bot**.
-2. Only then proceed to step 3 (the `wpsetup` authentication link).
+**If the SSH key is LOST (our case -- this is the route we took):** the original
+DDL-portal key is gone and the retail `ep`-firmware path does NOT work on a
+dev/OSKR bot (it fails OTA `status:214`, Dev/Prod mismatch -- all published `ep`
+builds are prod-signed). The way forward is to re-flash with community CFW:
+
+1. **Unlock-prod first.** Our bot's recovery OS was the old `0.9.0`, which
+   cannot parse a modern dev image over BLE (fails OTA `status:200`, Unexpected
+   .tar contents). Flash froggitti's `Unlock-Prod.ota` via
+   <https://unlock-prod.froggitti.net> (Utility stack). ~7 min; keep Vector on
+   the charger and do NOT interrupt -- it rewrites the recovery filesystem.
+2. **Then flash WireOS** (the chosen CFW) via <https://websetup.froggitti.net>
+   -> Custom Firmware stack. WireOS is SSH-able and wire-pod-friendly.
+3. **Get a working SSH key + connect to wire-pod.** froggitti's tool issues a
+   fresh SSH root key the now-dev bot accepts. Use it with wire-pod's
+   `setup.sh scp <bot-ip> <key>` to install the escapepod cert + server_config.
+
+Reference docs: the DDL OSKR owner's manual
+(github.com/digital-dream-labs/oskr-owners-manual) and the community CFW docs
+(os-vector.github.io/vector-docs). Note os-vector routes dev/OSKR installs over
+SSH precisely because BLE `ota-start` only works for "Unlocked Prod" bots.
 
 ## 3. Clear user data and authenticate
 
@@ -95,7 +111,16 @@ confirm the IP in `~/.anki_vector/sdk_config.ini` matches Vector's current IP
   60s, so wait a minute and retry Activate.
 - wpsetup stuck at 0% / "Error while updating": the web UI hides the bot's real
   OTA error (the failure branch is a no-op). A stale browser cache can also
-  break it -- try an incognito window. Note OSKR/dev bots usually skip the OTA.
+  break it -- try an incognito window. To see the REAL error, open wpsetup's
+  advanced terminal (uncheck "Enable auto-setup flow" before pairing), then run
+  `wifi-connect "<SSID>" <pw>`, `ota-start <url>`, and `ota-progress` -- it
+  prints `status:<code>`. Common codes: 200 unexpected .tar contents (recovery
+  OS too old to parse the image), 203 URL unreachable, 209 signature, 214
+  dev/prod mismatch (dev bot refusing a prod-signed `ep`), 215 network stall.
+  Host the .ota on a server that supports HTTP range/206 (nginx; python's
+  http.server does not, and the bot resets the connection).
+- OTA `status:214` on a dev/OSKR bot, or `status:200` on old recovery: do not
+  keep trying `ep` builds. Use the unlock-prod + WireOS route in section 2.
 - "Not authorized" / TLS errors: re-run the SDK configure step; the cert is
   per-robot and per-machine.
 - Wrong IP after reboot: update `sdk_config.ini` or assign Vector a static

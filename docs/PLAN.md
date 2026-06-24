@@ -71,8 +71,10 @@ downloaded from the dead DDL portal) and DDL's shared static dev key
   authorized_keys (removed or wiped by a Clear User Data).
 - Per-bot `id_rsa_Vector-Z3Y1`: not found on owner's machine.
 Clear User Data regenerates the key AND renames the bot, so only a key matching
-the CURRENT name (Z3Y1) would work. None found. => SSH-cert onboarding path is
-dead; must use the ep-OTA path (P2-04) instead, which needs no SSH key.
+the CURRENT name (Z3Y1) would work. None found.
+=> The original DDL-era SSH key is dead. REVIVED by P2-06: after flashing
+unlock-prod + WireOS, froggitti's tool issues a fresh SSH root key the (now-dev)
+bot accepts. That is the working way to get root SSH for the wire-pod setup.
 
 ### P2-01  Confirm OSKR/dev firmware  [x]
 Goal: confirm this bot is ready for wire-pod authentication. Our Vector is
@@ -93,36 +95,56 @@ authenticates against). Fixed on the Pi via `GET /api-chipper/use_ep`
 (epconfig=true, port=443, restart). escapepod.local now resolves to the Pi;
 443/8084 listen; `http://escapepod.local:8080` loads from a LAN client. See
 P1-02 note + setup-vector.md.
-BLOCKED still: Activate continues to fail. tcpdump during Activate shows the bot
-sends ZERO TCP to the Pi's 443/8084 and never queries escapepod.local -- it is
-not pointed at our pod at all. An OSKR bot only talks to escapepod.local after
-its server_config + cert are installed, via either the SSH path (P2-00b, dead)
-or ep firmware (P2-04). So P2-02 is blocked on P2-04.
+Root cause of remaining failure: tcpdump during Activate shows the bot sends
+ZERO TCP to the Pi's 443/8084 and never queries escapepod.local -- it is not
+pointed at our pod at all. A bot only talks to escapepod.local after its
+server_config + cert are installed. The wpsetup "Activate" flow can't do that
+for our dev/OSKR bot (it expects a retail/ep bot). So P2-02 is blocked on
+getting onto wire-pod-capable firmware with root access -- which is P2-06
+(unlock-prod + WireOS + fresh SSH key + wire-pod `setup.sh scp`).
 
-### P2-04  Flash ep firmware via local OTA (unblocks P2-02)  [~]
-Goal: get the bot onto ep firmware so it points at escapepod.local without an
-SSH key. ep is the designed escape hatch when the OSKR key is lost (P2-00b).
-Method (from the DDL OSKR owner's manual, github.com/digital-dream-labs/
-oskr-owners-manual, doc/unlock.md): host the .ota on the LAN and run
-`ota-start <url>` in wpsetup's advanced terminal with the bot in recovery mode.
-Local hosting set up on the Pi (2026-06-24, all TEMPORARY -- tear down when
-done):
-- ep OTA cached at `/var/www/ota/vicos-2.0.1.6076ep.ota` (179763200 bytes, from
-  `http://wpsetup.keriganc.com:81/...`).
-- nginx serves it on `http://192.168.178.66:8086/vicos-2.0.1.6076ep.ota`
-  (HTTP/1.1 + Accept-Ranges + 206; python http.server on :8085 did NOT support
-  ranges and the bot reset the connection -- units: ota-serve.service stopped).
-- Pass to wpsetup as `?ota=<url>`:
-  `https://wpsetup.keriganc.com/html/main.html?ota=http://192.168.178.66:8086/vicos-2.0.1.6076ep.ota`
-Symptom: bot connects and GETs the file (User-Agent `Victor/0.9.0`, recovery
-reports victorversion=0.9.0) but aborts after ~0.4-0.5 MB of 180 MB, at varying
-offsets. NEXT STEP: read the real OTA error code via wpsetup terminal
-`ota-start <url>` then `ota-progress` (codes: 203 not found, 209 signature, 211
-wrong base version, 214 dev/prod mismatch, 215 network stall, 216 downgrade
-blocked). Manual warns the 0.9.0 recovery sw "does not support updating the
-appropriate partitions" for the unlock image -- but a normal OSKR/prod OTA is a
-safe test. May need CLEAR USER DATA first (codes 211/216).
-Done when: firmware string ends in `ep` and the bot reboots into it.
+### P2-04  Flash ep firmware via local OTA  [x] (DEAD END -- superseded by P2-06)
+Attempted: get the bot onto retail `ep` firmware so it points at escapepod.local
+without an SSH key, by hosting the .ota on the Pi and running `ota-start <url>`
+in wpsetup's advanced terminal (bot in recovery mode). Did NOT work; kept here
+as a record of what to skip.
+Why it failed: with wifi connected in the terminal, `ota-start` returns
+`status:214` (Dev/Prod mismatch). Our bot has OSKR/DEV signing keys and refuses
+ALL prod-signed images. Every published `ep` build is prod-signed
+(wpsetup.keriganc.com:81 and anki2.ca/ep: 1.4.1, 1.6.0, 1.7.3, 1.8.1,
+2.0.1.6076..6091). No dev-signed `ep` exists. So the ep path is unusable for a
+dev/OSKR bot -- it is the wrong family of firmware.
+Diagnostic notes worth keeping: OTA error codes (203 URL not found, 209
+signature, 211 wrong base, 214 dev/prod, 215 network stall, 216 downgrade); the
+bot downloads the OTA itself over wifi and the wpsetup GUI hides failures (empty
+`else` in onOtaProgress) -- read the real code via terminal `ota-progress`;
+serve OTAs with a server that supports HTTP range/206 (nginx, not python
+http.server) or the bot resets the connection.
+
+### P2-06  Unlock-prod + WireOS via froggitti  [~]  <-- THE WAY FORWARD (taken)
+This is the path that actually works for a dev/OSKR bot whose SSH key is lost.
+Both other routes are dead: SSH-cert (P2-00b, key gone) and ep-flash (P2-04,
+214). The breakthrough: a dev image flashed via `ota-start` fails `status:200`
+(Unexpected .tar contents) because our recovery OS is the old `0.9.0`, which
+can't parse a modern (3.0.1) image -- confirmed by trying WireOS dev.ota
+(3.0.1.32d, ankidev=1; cleared 214, then hit 200). The os-vector docs
+(os-vector.github.io/vector-docs) route dev/OSKR installs over SSH for exactly
+this reason; only "Unlocked Prod" uses BLE ota-start.
+Fix: froggitti's `Unlock-Prod.ota` -- a recovery-parseable image that re-enables
+dev firmware on the bot. This one flashes and progresses (the first OTA that got
+past 0%).
+Steps (started 2026-06-24, chosen and in progress):
+1. https://unlock-prod.froggitti.net -> Utility stack -> `Unlock-Prod.ota`.
+   ~7 min, keep Vector on the charger, do not interrupt (rewrites recovery).
+2. After reboot, flash WireOS via https://websetup.froggitti.net -> Custom
+   Firmware stack (chosen target). Fallback if the GUI is flaky: re-run
+   `ota-start http://192.168.178.66:8086/dev.ota` from the Pi -- with the unlock
+   applied it should now install past the old 214/200.
+3. Connect to wire-pod: download froggitti's SSH root key (the now-dev bot
+   accepts it) and run wire-pod `setup.sh scp <bot-ip> <key>` on the Pi to write
+   the escapepod cert + server_config. wire-pod is already in escape-pod mode
+   and advertising escapepod.local (see P2-02 / P1-02).
+Done when: bot runs WireOS and authenticates to wire-pod (rolls into P2-02).
 
 ### P2-03  Authenticate the Python SDK  [ ]
 Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
