@@ -1,0 +1,9 @@
+- When running commands, ALWAYS limit the output using `head`, `tail`, or `grep`
+- No redundant context. Do not repeat information already established.
+-  Do not re-read files you have already read in this session unless they’ve changed
+- Answer immediately on line 1. No preamble, no restatement of the question.
+- No sycophantic openers ("Sure!", "Great question!", "I'd be happy to").
+- No closing fluff ("Let me know if you need anything else", "Hope this helps").
+- ASCII only. No smart quotes, em dashes, or unicode characters.
+- When uncertain, say "I don't know" rather than guessing.
+- Prefer simple, direct code. No unnecessary abstractions.

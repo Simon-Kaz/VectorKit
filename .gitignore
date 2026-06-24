@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Vector SDK config and secrets (never commit robot credentials)
+.anki_vector/
+*sdk_config.ini
+*.cert
+*.pem
+.env
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
