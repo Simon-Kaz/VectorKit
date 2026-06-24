@@ -82,9 +82,25 @@ confirm the IP in `~/.anki_vector/sdk_config.ini` matches Vector's current IP
 
 ## Troubleshooting
 
+- "Error logging in. The bot is likely unable to communicate with your
+  wire-pod instance" at the Activate step: the bot authenticates against
+  `escapepod.local:443`. This fails if wire-pod is NOT in escape-pod mode --
+  check `apiConfig.json` on the Pi for `"epconfig": false`. Our Pi is named
+  `vector-pod` (so only `vector-pod.local` resolves by default); wire-pod must
+  advertise `escapepod.local` itself, which it only does in escape-pod mode.
+  Fix: `curl http://localhost:8080/api-chipper/use_ep` on the Pi (sets
+  epconfig=true, port=443, restarts chipper), or re-run `setup.sh` and choose
+  the `escapepod.local` certs. Then `getent hosts escapepod.local` should
+  return the Pi's IP and 443/8084 should be listening. mDNS broadcasts ~every
+  60s, so wait a minute and retry Activate.
+- wpsetup stuck at 0% / "Error while updating": the web UI hides the bot's real
+  OTA error (the failure branch is a no-op). A stale browser cache can also
+  break it -- try an incognito window. Note OSKR/dev bots usually skip the OTA.
 - "Not authorized" / TLS errors: re-run the SDK configure step; the cert is
   per-robot and per-machine.
 - Wrong IP after reboot: update `sdk_config.ini` or assign Vector a static
   DHCP lease on your router.
 - Firmware version does not end in `ep`: re-flash via recovery; voice and
-  full control will not work otherwise.
+  full control will not work otherwise (retail bots only; OSKR bots are
+  already dev-unlocked and report an `oskr`-suffixed version like
+  `1.7.1.6003oskr`).
