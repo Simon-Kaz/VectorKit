@@ -19,6 +19,10 @@ env/
 *.pem
 .env
 
+# A filled-in Pi config holds a password hash + Wi-Fi secrets; only the
+# template (*.toml.template) belongs in git.
+custom.toml
+
 # Editor / OS
 .DS_Store
 *.swp

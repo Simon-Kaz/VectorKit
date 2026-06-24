@@ -1,0 +1,63 @@
+# Raspberry Pi OS headless first-boot config (Bookworm and later).
+#
+# Place this file as `custom.toml` in the boot partition (/Volumes/bootfs on
+# macOS) of a freshly flashed SD card. The OS applies it on first boot, then
+# removes it. Works with any imaging tool (balenaEtcher, dd, etc.) -- you do
+# NOT need Raspberry Pi Imager.
+#
+# This is a SANITIZED TEMPLATE. Replace every <PLACEHOLDER> before use.
+# Do not commit a filled-in copy: it would contain a password hash and Wi-Fi
+# secrets. Keep real configs out of git.
+#
+# --- Common gotchas (these bit us once) ---
+#   * [user] password_encrypted MUST be true when password is a $6$... hash.
+#     If false, the whole hash is treated as your literal plaintext password.
+#   * [wlan] password_encrypted is false for a normal plaintext Wi-Fi password.
+#   * authorized_keys: each key must be ONE unbroken line. TOML strings cannot
+#     wrap across lines. Long RSA keys are easy to break by accident.
+#   * [wlan] country is REQUIRED (2-letter code) or the Wi-Fi radio stays off.
+#   * ssid is exact and case-sensitive; include spaces/punctuation verbatim.
+#
+# --- Generate the password hash (macOS) ---
+#   macOS built-in LibreSSL lacks `-6`; use Homebrew openssl:
+#     brew install openssl
+#     $(brew --prefix openssl)/bin/openssl passwd -6
+#
+# --- Write to the card (macOS, avoids editor issues on FAT) ---
+#   pbpaste > /Volumes/bootfs/custom.toml        # after copying your filled file
+#   grep -c ssh-rsa /Volumes/bootfs/custom.toml  # sanity: keys not line-wrapped
+#   diskutil eject /Volumes/bootfs
+#
+# --- After boot (~90s) ---
+#   ssh <user>@<hostname>.local
+#   If .local does not resolve, find the IP in your router and ssh to it.
+#   Then set a static DHCP lease for the Pi so its address is stable.
+
+config_version = 1
+
+[system]
+hostname = "<HOSTNAME>"          # e.g. "vector-pod"; reachable as <hostname>.local
+
+[user]
+name = "<USERNAME>"              # lowercase, starts with a letter, <=31 chars
+password = "<$6$_HASH>"          # output of: openssl passwd -6
+password_encrypted = true        # true because the value above is a hash
+
+[ssh]
+enabled = true
+password_authentication = true   # set false after confirming key login works
+authorized_keys = [
+    "<SSH_PUBLIC_KEY_LINE_1>",   # paste full contents of an *.pub file, one per line
+    # "<SSH_PUBLIC_KEY_LINE_2>", # optional second key
+]
+
+[wlan]
+ssid = "<WIFI_SSID>"             # exact, case-sensitive
+password = "<WIFI_PASSWORD>"     # plaintext
+password_encrypted = false
+hidden = false                   # true only for a hidden network
+country = "<CC>"                 # 2-letter code, e.g. IE, GB, US -- REQUIRED
+
+[locale]
+keymap = "<KEYMAP>"              # e.g. "gb", "us"
+timezone = "<TZ>"                # e.g. "Europe/Dublin", "America/New_York"
