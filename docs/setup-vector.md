@@ -14,7 +14,14 @@ on the Pi (see `infra/wire-pod/README.md`).
 - A Chromium-based browser (the setup page uses Web Bluetooth / Web Serial).
 - Vector and the browser machine on the same network.
 
-## 2. Put Vector in recovery and flash `ep` firmware
+## 2. Prepare the bot (firmware / unlock)
+
+First find out which kind of bot you have. On the charger, raise the lift arm
+to the top and lower it to cycle Vector's Customer Care Info Screen, which
+shows serial, firmware version, and IP. A bot that boots to an **OSKR logo**
+is dev-unlocked.
+
+### Retail bot
 
 Retail bots need DDL firmware whose version string ends in `ep`. Stock v2.0.x
 is NOT enough.
@@ -23,6 +30,20 @@ is NOT enough.
 2. Hold the backpack button ~15 seconds until it enters recovery mode.
 3. In wire-pod's web UI, follow "Bot Setup" to flash the DDL-compiled
    firmware. After flashing, the firmware version should end in `ep`.
+
+### OSKR / dev-unlocked bot
+
+OSKR bots are already dev-unlocked, so there is no `ep` flash and no recovery
+step -- they are unlocked with an SSH key instead. wire-pod's web UI even notes
+a firmware warning here "can be ignored"; the OSKR path needs firmware >= 1.4.
+
+Order matters, and it is the reverse of the retail flow: do the SSH-key step
+FIRST, then authenticate. Going straight to the `wpsetup` link before the bot
+is set up makes that page reset and do nothing.
+
+1. In Bot Setup, under **"Configure an OSKR/dev-unlocked robot"**, enter the
+   bot's IP address, upload the bot's SSH key, and click **Set up bot**.
+2. Only then proceed to step 3 (the `wpsetup` authentication link).
 
 ## 3. Clear user data and authenticate
 
