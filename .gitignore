@@ -20,6 +20,8 @@ env/
 .env
 # SSH keys / OTA images (robot dev keys and large firmware blobs stay out)
 ssh_root_key
+*ssh*key*
+*SshKey*
 id_rsa*
 *.ota
 

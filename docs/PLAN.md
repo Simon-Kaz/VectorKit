@@ -83,7 +83,7 @@ Outcome: firmware is `1.7.1.6003oskr` (read in wpsetup after pairing), well
 above the 1.4 floor. The earlier care-screen `0.9.0 (V4)` was a recovery/boot
 string, not the OS version. ESN `00805A35`, BLE ID `Vector Z3Y1`.
 
-### P2-02  Authenticate Vector to wire-pod  [b]
+### P2-02  Authenticate Vector to wire-pod  [~]
 Goal: pair the bot to wire-pod so voice works.
 Files: `docs/setup-vector.md` (step 3). Web UI: `http://vector-pod.local:8080`.
 Done when: web UI shows "Vector setup is complete!" and a voice command
@@ -95,13 +95,28 @@ authenticates against). Fixed on the Pi via `GET /api-chipper/use_ep`
 (epconfig=true, port=443, restart). escapepod.local now resolves to the Pi;
 443/8084 listen; `http://escapepod.local:8080` loads from a LAN client. See
 P1-02 note + setup-vector.md.
-Root cause of remaining failure: tcpdump during Activate shows the bot sends
-ZERO TCP to the Pi's 443/8084 and never queries escapepod.local -- it is not
-pointed at our pod at all. A bot only talks to escapepod.local after its
-server_config + cert are installed. The wpsetup "Activate" flow can't do that
-for our dev/OSKR bot (it expects a retail/ep bot). So P2-02 is blocked on
-getting onto wire-pod-capable firmware with root access -- which is P2-06
-(unlock-prod + WireOS + fresh SSH key + wire-pod `setup.sh scp`).
+STATUS 2026-06-24: CONNECTED to wire-pod, but bot stuck on onboarding screen
+(no eyes / no voice yet). Resolved the pre-WireOS blockers (see P2-06): after
+WireOS + `setup.sh scp`, the bot now genuinely talks to wire-pod --
+- vic-cloud loaded `/anki/etc/wirepod-cert.crt`, has a valid token ("token
+  refresh: waiting for 716h").
+- vic-engine JdocsManager round-trips to wire-pod: "Received user response ...
+  userID: 'wirepod'" + WriteDoc RobotSettings/AccountSettings/UserEntitlements
+  for Robot ID vic:00805a35.
+- `escapepod.local/ok` connCheck returns 200; bot TLS handshake to
+  escapepod.local:443 gets the CN=escapepod.local cert.
+REMAINING BLOCKER: bot won't leave the onboarding/pairing screen. Needs the
+`onboarding_mark_complete_and_exit` gateway input sent over BLE. Obstacles hit:
+- kerigan.dev/vector-epod-setup "Activate" -> "Error logging in" (but the bot is
+  already authed/syncing jdocs, so this BLE re-association is rejected/redundant).
+- This WireOS build has NO vic-gateway binary; SDK gateway/443 not listening on
+  the bot, so no local API to push onboarding input.
+- The Pi's wire-pod build returns 404 for the /api-ble/* onboarding routes
+  (older build); Pi BLE hci0 is now UP (rfkill unblock) but unused.
+- froggitti websetup would re-flash (overwrite our cert/config) -- do NOT use.
+NEXT: find the canonical WireOS "exit onboarding" step (os-vector Discord /
+wire-pod issues), or update wire-pod on the Pi to a build with /api-ble routes
+and drive onboard-complete from the Pi's own Bluetooth.
 
 ### P2-04  Flash ep firmware via local OTA  [x] (DEAD END -- superseded by P2-06)
 Attempted: get the bot onto retail `ep` firmware so it points at escapepod.local
@@ -121,7 +136,7 @@ bot downloads the OTA itself over wifi and the wpsetup GUI hides failures (empty
 serve OTAs with a server that supports HTTP range/206 (nginx, not python
 http.server) or the bot resets the connection.
 
-### P2-06  Unlock-prod + WireOS via froggitti  [~]  <-- THE WAY FORWARD (taken)
+### P2-06  Unlock-prod + WireOS via froggitti  [x]  <-- THE WAY FORWARD (taken)
 This is the path that actually works for a dev/OSKR bot whose SSH key is lost.
 Both other routes are dead: SSH-cert (P2-00b, key gone) and ep-flash (P2-04,
 214). The breakthrough: a dev image flashed via `ota-start` fails `status:200`
@@ -145,6 +160,26 @@ Steps (started 2026-06-24, chosen and in progress):
    the escapepod cert + server_config. wire-pod is already in escape-pod mode
    and advertising escapepod.local (see P2-02 / P1-02).
 Done when: bot runs WireOS and authenticates to wire-pod (rolls into P2-02).
+OUTCOME 2026-06-24: DONE. Flashed Unlock-Prod.ota then WireOS (3.0.1.32d).
+SSH into WireOS works with the standard `ssh_root_key` (froggitti serves it at
+unlock-prod.froggitti.net/media/ssh_root_key; same key the prod bot rejected --
+WireOS trusts it). Installed escapepod server_config + ep.crt + vic-cloud via
+the steps inside wire-pod `setup.sh scp` (run manually: the script's `set -e`
+aborts on the build.prop SSH probe; also `touch chipper/useepod` first and add
+`PubkeyAcceptedKeyTypes +ssh-rsa` to the Pi's /etc/ssh/ssh_config). Then the
+wpsetup BLE "Activate" succeeded: wire-pod logged "Token: Incoming Associate
+Primary User request" + jdocs WriteDoc for Robot ID vic:00805a35. Remaining
+onboarding-screen issue tracked under P2-02.
+
+### Pi state left in place (2026-06-24, after cleanup)
+KEEP (the bot depends on these): wire-pod in escape-pod mode advertising
+escapepod.local; `/home/vector/wire-pod/frog_key` (== ssh_root_key, SSH to the
+bot, `ssh -i frog_key -o PubkeyAcceptedAlgorithms=+ssh-rsa root@192.168.178.67`);
+`PubkeyAcceptedKeyTypes +ssh-rsa` in the Pi's /etc/ssh/ssh_config;
+`chipper/useepod` marker.
+TORN DOWN: temp OTA servers (ota-serve.service removed; nginx stopped+disabled)
+and ~340MB cached .ota images under /var/www/ota, /home/vector, /tmp.
+Pi BLE hci0 was brought UP (rfkill unblock) -- harmless if left up.
 
 ### P2-03  Authenticate the Python SDK  [ ]
 Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
