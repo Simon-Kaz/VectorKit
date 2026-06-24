@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vector"
+version = "0.1.0"
+description = "Personal solutions and prototypes for the Anki Vector robot"
+requires-python = ">=3.9"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+# The Vector SDK is vendored as a git submodule under
+# libs/vendor/wirepod-vector-python-sdk (our fork of kercre123's). It is not
+# listed here so the repo installs and tests without the SDK or a robot
+# present. Install it explicitly to drive a real robot:
+#   pip install -e libs/vendor/wirepod-vector-python-sdk
+# See docs/landscape.md (Control) for why it is vendored rather than pinned.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "pytest>=8",
+]
+
+[tool.setuptools.packages.find]
+where = ["libs"]
+include = ["vectorkit*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+# Vendored third-party SDK is not ours to lint.
+extend-exclude = ["libs/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["libs", "prototypes"]
+norecursedirs = ["libs/vendor"]

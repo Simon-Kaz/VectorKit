@@ -1,0 +1,3 @@
+[submodule "libs/vendor/wirepod-vector-python-sdk"]
+	path = libs/vendor/wirepod-vector-python-sdk
+	url = https://github.com/Simon-Kaz/wirepod-vector-python-sdk.git
