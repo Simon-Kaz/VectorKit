@@ -1,0 +1,48 @@
+# Local validation. Install once: `make hooks` (or `pre-commit install`).
+# Run on everything anytime: `pre-commit run --all-files` (or `make check`).
+# CI runs the same hooks, so "passes locally" == "passes CI".
+
+# The vendored SDK is third-party; never lint or format it.
+exclude: '^libs/vendor/'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.19
+    hooks:
+      - id: ruff           # lint, auto-fixing what it safely can
+        args: [--fix]
+      - id: ruff-format    # format
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint     # lint GitHub Actions workflows
+
+  # Tests are the slower gate: run on push, not on every commit, so nothing
+  # broken reaches GitHub. Uses the project venv (pytest must be installed).
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: scripts/run-tests.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

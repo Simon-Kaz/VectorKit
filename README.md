@@ -42,6 +42,17 @@ git clone --recurse-submodules https://github.com/Simon-Kaz/VectorKit.git
 2. Flash and authenticate your Vector: `docs/setup-vector.md`.
 3. Set up Python and run the hello-world: `prototypes/hello-vector/README.md`.
 
+## Development
+
+```bash
+make setup   # venv + dev deps
+make hooks   # install pre-commit and pre-push git hooks
+make check   # run all validation (lint, format, shellcheck, actionlint, tests)
+```
+
+Validation runs locally as git hooks and in CI via the same `pre-commit`
+config, so green locally means green in CI. See `docs/development.md`.
+
 ## Requirements
 
 - An Anki / Digital Dream Labs Vector (1.0 or 2.0)
