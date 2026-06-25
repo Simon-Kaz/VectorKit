@@ -105,18 +105,25 @@ WireOS + `setup.sh scp`, the bot now genuinely talks to wire-pod --
   for Robot ID vic:00805a35.
 - `escapepod.local/ok` connCheck returns 200; bot TLS handshake to
   escapepod.local:443 gets the CN=escapepod.local cert.
-REMAINING BLOCKER: bot won't leave the onboarding/pairing screen. Needs the
-`onboarding_mark_complete_and_exit` gateway input sent over BLE. Obstacles hit:
-- kerigan.dev/vector-epod-setup "Activate" -> "Error logging in" (but the bot is
-  already authed/syncing jdocs, so this BLE re-association is rejected/redundant).
-- This WireOS build has NO vic-gateway binary; SDK gateway/443 not listening on
-  the bot, so no local API to push onboarding input.
-- The Pi's wire-pod build returns 404 for the /api-ble/* onboarding routes
-  (older build); Pi BLE hci0 is now UP (rfkill unblock) but unused.
-- froggitti websetup would re-flash (overwrite our cert/config) -- do NOT use.
-NEXT: find the canonical WireOS "exit onboarding" step (os-vector Discord /
-wire-pod issues), or update wire-pod on the Pi to a build with /api-ble routes
-and drive onboard-complete from the Pi's own Bluetooth.
+REMAINING BLOCKER (updated 2026-06-25): the onboarding-complete BLE command
+itself wedges the WireOS behavior stack. We CAN now send it -- enabled wire-pod
+in-built BLE on the Pi (see P2-07) and drove the full flow from the Pi:
+scan -> connect (PIN shows on face) -> send_pin -> `onboard?with_anim=true`
+(fires onboarding_wake_up_request then onboarding_mark_complete_and_exit). All
+steps return success/done. BUT: reproducibly (twice), right after the onboard
+command the bot's display goes BLANK (LCD backlight on, nothing drawn) and it
+stops responding to button/touch/voice. Services stay `active` (no crash); the
+engine soft-hangs -- vic-engine logs `VisionComponent.CaptureImage.
+TooLongSinceFrameWasCaptured` (~6min since last frame). A reboot recovers it to
+a working pairing screen (server_config persists = escapepod.local), but
+onboarding does NOT stick, so we land back here. => this is a WireOS firmware
+bug (behavior/vision stack hangs on mark_complete_and_exit), not a wire-pod
+issue. The robot<->pod link itself is fully working.
+NEXT (next session, NOT more trial-and-error): ask the os-vector / WireOS
+Discord how to complete onboarding on WireOS 3.0.1.32d without the blank-face
+hang; or try froggitti's websetup ONBOARDING flow (not flashing). Possibly try
+`onboard?with_anim=false` (skip the wake animation) to see if the hang is in the
+wake_up_request rather than mark_complete.
 
 ### P2-04  Flash ep firmware via local OTA  [x] (DEAD END -- superseded by P2-06)
 Attempted: get the bot onto retail `ep` firmware so it points at escapepod.local
@@ -171,15 +178,37 @@ wpsetup BLE "Activate" succeeded: wire-pod logged "Token: Incoming Associate
 Primary User request" + jdocs WriteDoc for Robot ID vic:00805a35. Remaining
 onboarding-screen issue tracked under P2-02.
 
-### Pi state left in place (2026-06-24, after cleanup)
+### P2-07  Enable wire-pod in-built BLE on the Pi  [x]
+Goal: drive Vector's BLE onboarding from the Pi (no flaky browser BLE), to send
+onboarding-complete. wire-pod's /api-ble/* routes are behind the `inbuiltble`
+Go build tag; our binary lacked it (/api-ble/init -> 404).
+What was tried/learned:
+- Setting `USE_INBUILT_BLE=true` in source.sh did nothing: start.sh only
+  recompiles when there is NO prebuilt `./chipper`; ours was prebuilt (no tag).
+- Removing ./chipper to force `go run` FAILS under systemd: "module cache not
+  found" (no GOPATH/HOME in the service env). Don't do this -- it crash-loops.
+- The official v1.2.18 arm64 .deb binary HAS inbuiltble, but is hardcoded to
+  `/etc/wire-pod` paths and won't run from our git-clone layout ("FATAL: no
+  /etc/wire-pod folder").
+- WORKING FIX: build in our layout as root with setup.sh's recipe --
+  `GOTAGS=nolibopusfile,inbuiltble`, vosk CGO env (CGO_CFLAGS=-I/root/.vosk/
+  libvosk, CGO_LDFLAGS="-L /root/.vosk/libvosk -lvosk -ldl -lpthread",
+  LD_LIBRARY_PATH=/root/.vosk/libvosk), `go build -o chipper.ble cmd/vosk/
+  main.go`. Stop service, `cp chipper.ble chipper`, start. /api-ble/init now
+  returns "success". Backup of the non-BLE binary: chipper.noble.bak.
+Outcome: Pi can pair/connect/send_pin/onboard over its own Bluetooth (hci0).
+
+### Pi state left in place (after cleanup; current as of 2026-06-25)
 KEEP (the bot depends on these): wire-pod in escape-pod mode advertising
-escapepod.local; `/home/vector/wire-pod/frog_key` (== ssh_root_key, SSH to the
-bot, `ssh -i frog_key -o PubkeyAcceptedAlgorithms=+ssh-rsa root@192.168.178.67`);
+escapepod.local, NOW RUNNING the in-built-BLE binary (`chipper`, tag
+`inbuiltble`); `chipper.noble.bak` = the previous non-BLE binary (rollback);
+`/home/vector/wire-pod/frog_key` (== ssh_root_key, SSH to the bot:
+`ssh -i frog_key -o PubkeyAcceptedAlgorithms=+ssh-rsa root@192.168.178.67`);
 `PubkeyAcceptedKeyTypes +ssh-rsa` in the Pi's /etc/ssh/ssh_config;
-`chipper/useepod` marker.
-TORN DOWN: temp OTA servers (ota-serve.service removed; nginx stopped+disabled)
-and ~340MB cached .ota images under /var/www/ota, /home/vector, /tmp.
-Pi BLE hci0 was brought UP (rfkill unblock) -- harmless if left up.
+`chipper/useepod` marker; `USE_INBUILT_BLE=true` in chipper/source.sh.
+Pi Bluetooth hci0 kept UP (rfkill unblock).
+TORN DOWN: temp OTA servers (ota-serve removed; nginx stopped+disabled) and
+~340MB cached .ota images under /var/www/ota, /home/vector, /tmp.
 
 ### P2-03  Authenticate the Python SDK  [ ]
 Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
