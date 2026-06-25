@@ -1,131 +1,198 @@
 # Setting up Vector with wire-pod
 
-End-to-end onboarding for a retail Vector. Assumes wire-pod is already running
-on the Pi (see `infra/wire-pod/README.md`).
+How our Vector got onto our self-hosted wire-pod, the current confirmed
+state, how to verify it, and the dead ends we hit so we never repeat them.
 
-> Order matters: install/start wire-pod first, then flash + authenticate the
-> robot against it.
+> TL;DR for our bot: it is an OSKR (dev-unlocked) Vector whose original DDL
+> SSH key is lost. The ONLY path that worked was: reflash community firmware
+> (WireOS Dev) and onboard via the web-UI tutorial against a clean escape-pod
+> wire-pod. The manual SSH / BLE / ep-firmware paths all failed -- see
+> "History and dead ends" below before trying any of them again.
 
-## 1. Prerequisites
+---
 
-- Vector on its charger, fully booted.
-- Pi running wire-pod, reachable on the LAN (default web UI on port 8080,
-  often as `http://escapepod.local:8080` or the Pi's IP).
-- A Chromium-based browser (the setup page uses Web Bluetooth / Web Serial).
-- Vector and the browser machine on the same network.
+## Current setup (CONFIRMED WORKING 2026-06-25)
 
-## 2. Prepare the bot (firmware / unlock)
+Robot:
+- Model: OSKR / dev-unlocked Vector. ESN `00805A35`, name `Vector-Z3Y1`.
+- Firmware: **WireOS Dev `3.0.1.32d`** (community CFW by kercre123, based on the
+  leaked 2.0.1.6076 source). Flashed from <https://vector.techshop82.com>.
+- LAN IP: `192.168.178.67` (DHCP; can change -- see Troubleshooting).
+- Active server config: WireOS reads **`/data/data/server_config.json`**, which
+  points jdocs/tms/chipper/check all at `escapepod.local:443` -> our Pi.
+  (NOTE: the other file, `/anki/data/assets/cozmo_resources/config/
+  server_config.json`, may still say `vicapi.pvic.xyz` and is MISLEADING --
+  it is not the one WireOS uses.)
 
-First find out which kind of bot you have. On the charger, raise the lift arm
-to the top and lower it to cycle Vector's Customer Care Info Screen, which
-shows serial, firmware version, and IP. A bot that boots to an **OSKR logo**
-is dev-unlocked.
+Server (the Pi):
+- Host `vector-pod` (`vector@vector-pod.local`, `192.168.178.66`). See
+  `infra/raspberry-pi/`.
+- wire-pod: systemd service, **escape-pod mode** (`apiConfig.json:
+  epconfig=true`, port 443), serving 443 + 8084, advertising `escapepod.local`
+  via its own mDNS. Vosk en-US STT loaded. **Non-BLE binary** (we removed the
+  in-built-BLE build -- see history). Web UI: `http://vector-pod.local:8080`
+  (also reachable as `http://escapepod.local:8080`).
+- Hostname stays `vector-pod`; wire-pod self-advertises `escapepod.local`, so
+  both names resolve. We did NOT rename the Pi.
 
-### Retail bot
+How they connect: Vector sends all cloud traffic (auth/jdocs/voice) to
+`escapepod.local:443` = the Pi. wire-pod handles STT (Vosk) and intents. There
+is NO dependency on any hosted/public cloud (verified below).
 
-Retail bots need DDL firmware whose version string ends in `ep`. Stock v2.0.x
-is NOT enough.
+---
 
-1. Place Vector on the charger.
-2. Hold the backpack button ~15 seconds until it enters recovery mode.
-3. In wire-pod's web UI, follow "Bot Setup" to flash the DDL-compiled
-   firmware. After flashing, the firmware version should end in `ep`.
+## The path that worked (do THIS for a lost-key OSKR bot)
 
-### OSKR / dev-unlocked bot
+Prerequisite: wire-pod already running on the Pi in escape-pod mode, advertising
+`escapepod.local`. To put/keep it there: `curl http://localhost:8080/
+api-chipper/use_ep` on the Pi (sets epconfig=true, port=443, restarts chipper),
+or re-run `setup.sh` and choose the `escapepod.local` certs. Verify with
+`getent hosts escapepod.local` (returns the Pi IP) and that 443/8084 listen.
 
-OSKR bots are already dev-unlocked. The intended path is to SSH in and run
-wire-pod's `setup.sh scp <bot-ip> <ssh-key>`, which writes the escapepod cert +
-`server_config.json` onto the bot so it talks to `escapepod.local`. This needs
-the bot's root SSH key.
+1. **Reflash WireOS Dev.** In Chrome, go to <https://vector.techshop82.com>
+   (a WireOS web flasher). Put Vector in recovery mode (hold backpack ~15s on
+   the charger) and flash WireOS Dev. Keep him on the charger throughout.
+2. **Onboard to wire-pod via the web UI.** Follow the WireOS onboarding tutorial
+   (<https://www.youtube.com/watch?v=MXycWBQtc0A>). When it asks for the server,
+   use **`escapepod.local`** (or the Pi IP `192.168.178.66`). This writes
+   `/data/data/server_config.json` -> escapepod and completes onboarding WITHOUT
+   the blank-face hang we hit on the manual path.
+3. **Done** when Vector shows eyes and a voice command returns an answer
+   (see Verification).
 
-**If you HAVE the SSH key:** run `setup.sh scp` and skip ahead to section 4.
+Why this works when the manual path did not: the techshop82 flasher + web-UI
+onboarding handle the firmware AND the onboarding-complete step in one
+firmware-aware flow. Our manual approach got the bot connected but could never
+clear onboarding (the `onboarding_mark_complete_and_exit` BLE command reliably
+hung WireOS 3.0.1.32d's vision/behavior stack).
 
-**If the SSH key is LOST (our case -- this is the route we took):** the original
-DDL-portal key is gone and the retail `ep`-firmware path does NOT work on a
-dev/OSKR bot (it fails OTA `status:214`, Dev/Prod mismatch -- all published `ep`
-builds are prod-signed). The way forward is to re-flash with community CFW:
+---
 
-1. **Unlock-prod first.** Our bot's recovery OS was the old `0.9.0`, which
-   cannot parse a modern dev image over BLE (fails OTA `status:200`, Unexpected
-   .tar contents). Flash froggitti's `Unlock-Prod.ota` via
-   <https://unlock-prod.froggitti.net> (Utility stack). ~7 min; keep Vector on
-   the charger and do NOT interrupt -- it rewrites the recovery filesystem.
-2. **Then flash WireOS** (the chosen CFW) via <https://websetup.froggitti.net>
-   -> Custom Firmware stack. WireOS is SSH-able and wire-pod-friendly.
-3. **Get a working SSH key + connect to wire-pod.** froggitti's tool issues a
-   fresh SSH root key the now-dev bot accepts. Use it with wire-pod's
-   `setup.sh scp <bot-ip> <key>` to install the escapepod cert + server_config.
+## Verification (how we proved it is OUR wire-pod, not a hosted one)
 
-Reference docs: the DDL OSKR owner's manual
-(github.com/digital-dream-labs/oskr-owners-manual) and the community CFW docs
-(os-vector.github.io/vector-docs). Note os-vector routes dev/OSKR installs over
-SSH precisely because BLE `ota-start` only works for "Unlocked Prod" bots.
+Voice working is necessary but not sufficient proof -- a bot pointed at the
+public `vicapi.pvic.xyz` cloud would also answer. We confirmed self-hosting
+three independent ways (2026-06-25):
 
-## 3. Clear user data and authenticate
+1. **Voice end-to-end.** "Hey Vector, what time is it?" returns the correct time
+   (via wakeword and via backpack-button). Voice intents resolve through the
+   `chipper` endpoint, which is escapepod.local.
 
-1. In the web UI, clear user data when prompted.
-2. Use "Bot Setup" -> Scan (BLE) to find Vector, or follow the provided link.
-3. Click ACTIVATE / AUTHENTICATE. If it errors, wait ~20 seconds and retry.
-4. Success shows "Vector setup is complete!"
+2. **Packet capture (positive proof).** On the Pi, capture the bot's outbound
+   connections while asking the time. Pi = `192.168.178.66`, pvic =
+   `38.191.23.141`:
+   ```bash
+   sudo tcpdump -ni wlan0 \
+     "src host 192.168.178.67 and (dst host 192.168.178.66 or dst host 38.191.23.141)"
+   ```
+   Result: **200 packets to the Pi (port 443), 0 to pvic.xyz.** All cloud
+   traffic goes to our Pi.
 
-OSKR / dev-unlocked bots: complete the "Set up OSKR/dev bot" step first.
+3. **Stop-the-pod dependency test (the clincher).** Stop wire-pod, ask the time:
+   ```bash
+   sudo systemctl stop wire-pod    # on the Pi
+   ```
+   Result: Vector shows the **no-cloud-connectivity icon** and cannot answer.
+   A pvic-connected bot would still answer. Restart to restore:
+   ```bash
+   sudo systemctl start wire-pod
+   ```
 
-## 4. Authenticate the Python SDK
+Also useful: the bot appears in the escapepod web UI at
+`http://escapepod.local:8080/sdkapp/settings.html?serial=00805a35` (SDK
+control). NOTE: SDK control works via the stored GUID regardless of
+server_config, so the web UI alone does NOT prove the voice path -- use the
+tests above.
 
-Install the vendored SDK (our fork), then authenticate. This writes per-robot
-credentials to `~/.anki_vector/` on the machine that will run your code.
+---
+
+## Authenticate the Python SDK (next: P2-03)
+
+Install the vendored SDK (our fork), then authenticate. Writes per-robot creds
+to `~/.anki_vector/` on the machine that runs your code.
 
 ```bash
 pip install -e libs/vendor/wirepod-vector-python-sdk
 python -m anki_vector.configure
 ```
 
-You will need, from the underside of Vector or the app:
-- Robot serial number
-- Robot name (e.g. `Vector-A1B2`)
-- Robot IP address (shown on Vector's face: lift + lower, or via your router)
+You will need: robot serial (`00805A35`), robot name (`Vector-Z3Y1`), and the
+robot IP (`192.168.178.67`; confirm on the care screen or your router).
 
-## 5. Verify
-
+Verify:
 ```bash
 cd prototypes/hello-vector
 python main.py
 ```
+Vector should say hello and report battery state. If gRPC fails, confirm the IP
+in `~/.anki_vector/sdk_config.ini` matches Vector's current IP.
 
-Vector should say hello and report battery state. If gRPC connection fails,
-confirm the IP in `~/.anki_vector/sdk_config.ini` matches Vector's current IP
-(it can change on DHCP lease renewal).
+---
+
+## History and dead ends (how we got here -- do NOT repeat)
+
+We spent a long time on paths that DID NOT work for this bot. Recorded so we
+skip them next time. Full task-by-task detail is in `docs/PLAN.md`
+(P2-01/04/06/07/08).
+
+- **It is an OSKR bot, not retail.** Boots to an OSKR logo; firmware was
+  `1.7.1.6003oskr`. The care-screen `0.9.0` we first saw was the recovery OS,
+  not the OS version. Retail `ep`-firmware instructions do not apply.
+- **ep firmware is a DEAD END on a dev/OSKR bot.** Flashing any prod-signed
+  `ep` build via `ota-start` returns OTA `status:214` (Dev/Prod mismatch). All
+  published `ep` builds (wpsetup.keriganc.com:81, anki2.ca/ep: 1.4.1..2.0.1.6091)
+  are prod-signed. No dev-signed `ep` exists. Do not keep trying `ep` versions.
+- **Old `0.9.0` recovery cannot install modern dev images over BLE.** A WireOS
+  `dev.ota` (3.0.1) cleared the 214 but then failed `status:200` (Unexpected
+  .tar contents) because the recovery OS is too old to parse it. froggitti's
+  `Unlock-Prod.ota` (unlock-prod.froggitti.net) was the only OTA that progressed
+  past 0% -- it re-enables dev firmware on a parseable image.
+- **The lost SSH key:** an OSKR bot trusts a per-bot key (downloaded from the
+  dead DDL portal) and DDL's shared static dev key. The per-bot key
+  (`id_rsa_Vector-Z3Y1`) is gone; the shared key (recoverable from Wayback /
+  unlock-prod.froggitti.net/media/ssh_root_key, fp
+  `SHA256:9lZMgxdfKD9...`) was rejected by the prod bot but IS accepted once on
+  WireOS.
+- **Manual `setup.sh scp` connected the bot but could NOT finish onboarding.**
+  We did install the escapepod cert + server_config + vic-cloud by hand (the
+  script's `set -e` aborts on its build.prop SSH probe; needed `touch
+  chipper/useepod` and `PubkeyAcceptedKeyTypes +ssh-rsa` in the Pi's ssh_config
+  first). The bot authed and synced jdocs, but every "complete onboarding" path
+  then hung it:
+  - direct BLE `onboard?with_anim=true` AND `with_anim=false` -> blank LCD,
+    unresponsive, `VisionComponent.TooLongSinceFrameWasCaptured` (no crash).
+  - browser BLE (wpsetup.keriganc.com) "Activate" -> page hangs; token granted
+    server-side but onboarding never completed.
+  - wire-pod in-built BLE (which we compiled with `inbuiltble`) -> wedged the
+    Pi 4's built-in Bluetooth ("BLE driver has broken"); wire-pod restarted.
+  Conclusion: `onboarding_mark_complete_and_exit` is broken on this WireOS
+  build. We abandoned this whole approach for the clean WireOS-Dev + web-UI
+  reflash above, which just worked.
+- **A subtle gotcha that cost time:** wire-pod grants the token, but the bot
+  fetches it on a 5-min timer ("token refresher: no valid token yet, sleeping
+  5m0s"). Restarting `vic-cloud` on the bot forces an immediate fetch.
+
+---
 
 ## Troubleshooting
 
-- "Error logging in. The bot is likely unable to communicate with your
-  wire-pod instance" at the Activate step: the bot authenticates against
-  `escapepod.local:443`. This fails if wire-pod is NOT in escape-pod mode --
-  check `apiConfig.json` on the Pi for `"epconfig": false`. Our Pi is named
-  `vector-pod` (so only `vector-pod.local` resolves by default); wire-pod must
-  advertise `escapepod.local` itself, which it only does in escape-pod mode.
-  Fix: `curl http://localhost:8080/api-chipper/use_ep` on the Pi (sets
-  epconfig=true, port=443, restarts chipper), or re-run `setup.sh` and choose
-  the `escapepod.local` certs. Then `getent hosts escapepod.local` should
-  return the Pi's IP and 443/8084 should be listening. mDNS broadcasts ~every
-  60s, so wait a minute and retry Activate.
-- wpsetup stuck at 0% / "Error while updating": the web UI hides the bot's real
-  OTA error (the failure branch is a no-op). A stale browser cache can also
-  break it -- try an incognito window. To see the REAL error, open wpsetup's
-  advanced terminal (uncheck "Enable auto-setup flow" before pairing), then run
-  `wifi-connect "<SSID>" <pw>`, `ota-start <url>`, and `ota-progress` -- it
-  prints `status:<code>`. Common codes: 200 unexpected .tar contents (recovery
-  OS too old to parse the image), 203 URL unreachable, 209 signature, 214
-  dev/prod mismatch (dev bot refusing a prod-signed `ep`), 215 network stall.
-  Host the .ota on a server that supports HTTP range/206 (nginx; python's
-  http.server does not, and the bot resets the connection).
-- OTA `status:214` on a dev/OSKR bot, or `status:200` on old recovery: do not
-  keep trying `ep` builds. Use the unlock-prod + WireOS route in section 2.
-- "Not authorized" / TLS errors: re-run the SDK configure step; the cert is
-  per-robot and per-machine.
-- Wrong IP after reboot: update `sdk_config.ini` or assign Vector a static
-  DHCP lease on your router.
-- Firmware version does not end in `ep`: re-flash via recovery; voice and
-  full control will not work otherwise (retail bots only; OSKR bots are
-  already dev-unlocked and report an `oskr`-suffixed version like
-  `1.7.1.6003oskr`).
+- **"Error logging in" at Activate / bot cannot reach wire-pod:** the bot
+  authenticates against `escapepod.local:443`, which only works in escape-pod
+  mode. Check `apiConfig.json` on the Pi for `"epconfig": false`; if so, run
+  `curl http://localhost:8080/api-chipper/use_ep` (or re-run setup.sh, choose
+  escapepod.local certs). Then `getent hosts escapepod.local` should return the
+  Pi IP and 443/8084 should listen. mDNS broadcasts ~every 60s.
+- **Which wire-pod is the bot REALLY using?** Check
+  `/data/data/server_config.json` on the bot (the active one), NOT the
+  `/anki/.../server_config.json`. Or run the verification tests above.
+- **OTA `status:214` (dev/prod) or `status:200` (old recovery):** do not keep
+  trying `ep` builds -- use the WireOS-Dev reflash in "The path that worked".
+- **wpsetup stuck at 0% / "Error while updating":** the web UI hides the bot's
+  real OTA error. Open its advanced terminal (uncheck "Enable auto-setup flow"
+  before pairing), `wifi-connect "<SSID>" <pw>`, `ota-start <url>`, then
+  `ota-progress` to read `status:<code>`. Serve OTAs from nginx (HTTP range/206
+  support); python's http.server does not and the bot resets the connection.
+- **Wrong IP after reboot:** update `sdk_config.ini` or set a DHCP reservation
+  for Vector on the router.
+- **"Not authorized" / TLS errors (SDK):** re-run `python -m
+  anki_vector.configure`; the cert is per-robot and per-machine.
