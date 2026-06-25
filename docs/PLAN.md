@@ -88,6 +88,12 @@ Goal: pair the bot to wire-pod so voice works.
 Files: `docs/setup-vector.md` (step 3). Web UI: `http://vector-pod.local:8080`.
 Done when: web UI shows "Vector setup is complete!" and a voice command
 ("Hey Vector, what time is it?") returns an answer.
+FRESH-START PLAN (2026-06-25): abandon the manual BLE/internals approach. New
+route: reflash Vector with WireOS Dev (vector.techshop82.com) and onboard it to
+our wire-pod via the web-UI tutorial (youtube MXycWBQtc0A) -- no BLE, no manual
+setup.sh scp, no internals poking. wire-pod was rebuilt clean for this (P2-08).
+When pointing the bot at the server, use `escapepod.local` (or Pi IP
+192.168.178.66).
 Fixed (necessary, not sufficient): "Activate" failed "Error logging in" because
 wire-pod was in NON-escape-pod mode (`apiConfig.json: epconfig=false`) so it
 never served `escapepod.local:443` nor mDNS-advertised it (the name the bot
@@ -214,18 +220,32 @@ What was tried/learned:
   main.go`. Stop service, `cp chipper.ble chipper`, start. /api-ble/init now
   returns "success". Backup of the non-BLE binary: chipper.noble.bak.
 Outcome: Pi can pair/connect/send_pin/onboard over its own Bluetooth (hci0).
+NOTE: REVERTED in P2-08 -- the in-built-BLE binary is removed for the
+fresh-start (web-UI) approach. Build recipe above is kept for reference only.
 
-### Pi state left in place (after cleanup; current as of 2026-06-25)
-KEEP (the bot depends on these): wire-pod in escape-pod mode advertising
-escapepod.local, NOW RUNNING the in-built-BLE binary (`chipper`, tag
-`inbuiltble`); `chipper.noble.bak` = the previous non-BLE binary (rollback);
-`/home/vector/wire-pod/frog_key` (== ssh_root_key, SSH to the bot:
-`ssh -i frog_key -o PubkeyAcceptedAlgorithms=+ssh-rsa root@192.168.178.67`);
-`PubkeyAcceptedKeyTypes +ssh-rsa` in the Pi's /etc/ssh/ssh_config;
-`chipper/useepod` marker; `USE_INBUILT_BLE=true` in chipper/source.sh.
-Pi Bluetooth hci0 kept UP (rfkill unblock).
-TORN DOWN: temp OTA servers (ota-serve removed; nginx stopped+disabled) and
-~340MB cached .ota images under /var/www/ota, /home/vector, /tmp.
+### P2-08  Rebuild wire-pod clean (no BLE) for web-UI onboarding  [x]
+Goal: undo the manual BLE/internals hacks so the web-UI tutorial flow works on
+a clean wire-pod. Done 2026-06-25:
+- Swapped chipper back to the non-BLE binary (`chipper.noble.bak` -> `chipper`,
+  tag `nolibopusfile` only); removed `chipper.ble`. /api-ble/init now 404s.
+- Removed `USE_INBUILT_BLE=true` from chipper/source.sh.
+- Cleared stale bot data: jdocs/jdocs.json -> `[]`, jdocs/botSdkInfo.json ->
+  `{"global_guid":"","robots":[]}` (old vic:00805a35 token/GUID gone; backups in
+  /tmp/*.bak). Fresh for re-onboard.
+- KEPT (correct, not hacks): escape-pod mode (epconfig=true, port 443),
+  chipper/useepod marker, epod/ep.crt, certs/server_config.json (escapepod.local
+  :443). Vosk en-US model loaded (self-test passes).
+Verified: web up; 443/8084 serving; escapepod.local resolves to the Pi
+(192.168.178.66); BLE route gone; no stale bot.
+
+### Pi state (current, as of 2026-06-25 -- clean)
+KEEP: wire-pod in escape-pod mode, NON-BLE binary, advertising escapepod.local;
+Vosk en-US loaded; `chipper.noble.bak` retained as the live binary's source.
+SSH-to-bot tooling kept in case needed: `/home/vector/wire-pod/frog_key`
+(== ssh_root_key) and `PubkeyAcceptedKeyTypes +ssh-rsa` in /etc/ssh/ssh_config.
+Pi hostname stays `vector-pod` (both vector-pod.local and escapepod.local
+resolve). Pi Bluetooth unused now.
+TORN DOWN earlier: temp OTA servers + ~340MB cached .ota images.
 
 ### P2-03  Authenticate the Python SDK  [ ]
 Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
