@@ -286,6 +286,53 @@ Goal: decide what the Pi Zero 2 W + Pimoroni Display HAT Mini should do
 
 ---
 
+## Phase 4: Documentation & tooling  (backlog)
+
+Captured from the long, painful P2 onboarding. Goal: never repeat the manual
+trial-and-error, and finally understand the system.
+
+### P4-01  Interactive Vector onboarding guide  [ ]
+Goal: a step-by-step, interactive helper that walks a user through onboarding a
+Vector onto our wire-pod, one stage at a time, instead of the manual slog we
+just did. Proposed flow:
+1. wire-pod health: is it up, in escape-pod mode, advertising escapepod.local,
+   Vosk loaded? (mirror the verification commands in `docs/setup-vector.md`).
+2. Vector health/identity: reachable on LAN, current firmware/OS + whether it
+   is retail vs OSKR vs already-CFW (read the care screen / build.prop).
+3. Decision: does it need unlocking? If yes -> unlock-prod OTA steps, then
+   WireOS Dev flash; if already CFW -> skip to onboarding.
+4. Onboard to wire-pod via the web-UI flow; point at escapepod.local.
+5. Verify: voice test + the tcpdump / stop-the-pod proofs.
+Implementation idea: a Claude Code skill or a guided script. Source material is
+`docs/setup-vector.md` (the working path + dead ends are already mapped there).
+Done when: a fresh Vector can be onboarded by following the guide alone, with no
+manual log-spelunking.
+
+### P4-02  Understand & document the "Vector Web Setup" page  [ ]
+Goal: demystify the setup sites we bounced between -- wpsetup.keriganc.com,
+vector.techshop82.com, websetup.froggitti.net / unlock-prod.froggitti.net.
+Facts established 2026-06-25: they are all the SAME open-source "Vector Web
+Setup" Chrome/Web-Bluetooth app, hosted by different people, each pointed at
+different firmware/OTA backends (keriganc=ep OTAs on :81 + the link wire-pod's
+own UI hardcodes; froggitti=Unlock-Prod + CFW stacks; techshop82=WireOS Dev).
+wire-pod SHIPS ITS OWN COPY at `chipper/webroot/` (served on :8080); e.g.
+`js/ble.js` hardcodes `wpsetup.keriganc.com` (line 1) and an OTA URL (line 234).
+Done when: a short doc explains what the page is, the upstream repo, which copy
+we control (the bundled one), how to edit + self-host it, and how to point it at
+our own OTAs instead of third-party sites.
+
+### P4-03  Architecture diagrams for the whole project  [ ]
+Goal: diagrams of how the pieces connect, since the architecture has never been
+laid out visually. Suggested views: (a) hardware/network -- Vector, Pi
+(wire-pod), router, dev machine, the second Pi Zero; (b) wire-pod internals --
+chipper, escape-pod certs/mDNS, Vosk STT, jdocs, the bundled web setup app, BLE;
+(c) onboarding/data flow -- how a voice command travels bot -> escapepod.local
+:443 -> STT/intent -> response. Put in `docs/architecture.md` (Mermaid).
+Done when: `docs/architecture.md` has the diagrams and a fresh reader can follow
+how voice and control flow end-to-end.
+
+---
+
 ## Parking lot
 
 Unscheduled ideas, decisions to revisit, things noticed mid-task. Promote to a
