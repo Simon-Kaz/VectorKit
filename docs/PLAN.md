@@ -83,17 +83,24 @@ Outcome: firmware is `1.7.1.6003oskr` (read in wpsetup after pairing), well
 above the 1.4 floor. The earlier care-screen `0.9.0 (V4)` was a recovery/boot
 string, not the OS version. ESN `00805A35`, BLE ID `Vector Z3Y1`.
 
-### P2-02  Authenticate Vector to wire-pod  [~]
+### P2-02  Authenticate Vector to wire-pod  [x]
 Goal: pair the bot to wire-pod so voice works.
 Files: `docs/setup-vector.md` (step 3). Web UI: `http://vector-pod.local:8080`.
 Done when: web UI shows "Vector setup is complete!" and a voice command
 ("Hey Vector, what time is it?") returns an answer.
-FRESH-START PLAN (2026-06-25): abandon the manual BLE/internals approach. New
-route: reflash Vector with WireOS Dev (vector.techshop82.com) and onboard it to
-our wire-pod via the web-UI tutorial (youtube MXycWBQtc0A) -- no BLE, no manual
-setup.sh scp, no internals poking. wire-pod was rebuilt clean for this (P2-08).
-When pointing the bot at the server, use `escapepod.local` (or Pi IP
-192.168.178.66).
+OUTCOME 2026-06-25: DONE via the fresh-start route -- reflashed WireOS Dev
+(vector.techshop82.com) and onboarded to our wire-pod through the web-UI
+tutorial (youtube MXycWBQtc0A), NO BLE / no manual internals. Confirmed:
+- wire-pod logged a clean auth (fresh GUID, token round-trip, "Successfully got
+  jdocs from 00805a35"); bot shows in escapepod web UI (sdkapp control works).
+- Bot config: WireOS reads `/data/data/server_config.json` (NOT the /anki one),
+  which points jdocs/tms/chipper/check all at `escapepod.local:443` = our Pi.
+- VERIFIED BY VOICE: "Hey Vector, what time is it?" returns the correct time,
+  via both wakeword and backpack-button -- so the voice/chipper path runs
+  through our self-hosted wire-pod. Bot renders eyes / reacts normally (the old
+  blank-face onboarding hang is gone with the clean web-UI onboard).
+Key gotcha: WireOS uses `/data/data/server_config.json` as the active override
+(the /anki/.../server_config.json may still say pvic.xyz and is misleading).
 Fixed (necessary, not sufficient): "Activate" failed "Error logging in" because
 wire-pod was in NON-escape-pod mode (`apiConfig.json: epconfig=false`) so it
 never served `escapepod.local:443` nor mDNS-advertised it (the name the bot
