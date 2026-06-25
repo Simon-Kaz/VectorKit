@@ -101,6 +101,12 @@ tutorial (youtube MXycWBQtc0A), NO BLE / no manual internals. Confirmed:
   blank-face onboarding hang is gone with the clean web-UI onboard).
 Key gotcha: WireOS uses `/data/data/server_config.json` as the active override
 (the /anki/.../server_config.json may still say pvic.xyz and is misleading).
+PROVEN self-hosted (not pvic), 2026-06-25, three ways:
+1. tcpdump during a voice command: 200 packets bot->Pi (192.168.178.66:443), 0
+   to pvic.xyz (38.191.23.141).
+2. Dependency test: stop wire-pod -> Vector shows the no-cloud-connectivity icon
+   and cannot answer; restart -> works again. (A pvic bot would still answer.)
+3. server_config /data/data override points all endpoints at escapepod.local.
 Fixed (necessary, not sufficient): "Activate" failed "Error logging in" because
 wire-pod was in NON-escape-pod mode (`apiConfig.json: epconfig=false`) so it
 never served `escapepod.local:443` nor mDNS-advertised it (the name the bot
