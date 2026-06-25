@@ -119,11 +119,28 @@ a working pairing screen (server_config persists = escapepod.local), but
 onboarding does NOT stick, so we land back here. => this is a WireOS firmware
 bug (behavior/vision stack hangs on mark_complete_and_exit), not a wire-pod
 issue. The robot<->pod link itself is fully working.
-NEXT (next session, NOT more trial-and-error): ask the os-vector / WireOS
-Discord how to complete onboarding on WireOS 3.0.1.32d without the blank-face
-hang; or try froggitti's websetup ONBOARDING flow (not flashing). Possibly try
-`onboard?with_anim=false` (skip the wake animation) to see if the hang is in the
-wake_up_request rather than mark_complete.
+EVERY onboarding-complete path now exhausted (2026-06-25), all converge on the
+same WireOS hang or a transport failure:
+- direct BLE `onboard?with_anim=true` -> vision/behavior hang (blank face).
+- direct BLE `onboard?with_anim=false` -> SAME hang (so the wake animation is
+  NOT the cause; mark_complete_and_exit itself wedges it).
+- browser BLE (wpsetup.keriganc.com) "Activate" -> page hangs, but token IS
+  granted server-side; bot did not exit onboarding.
+- wire-pod UI in-built BLE scan/connect -> wedges the Pi's built-in Bluetooth
+  driver ("BLE driver has broken... too long to connect"), wire-pod restarts.
+NEW this session: the bot-side token pickup was the real gap after a browser
+Activate -- vic-cloud logged "no valid token yet, sleeping 5m"; restarting
+vic-cloud on the bot made it fetch the token ("token refresh: waiting 716h").
+After that the bot boots WITH a valid token, but mark_complete_and_exit STILL
+hangs it. So: token/cert/jdocs all good; the hang is purely WireOS's
+onboarding-exit on build 3.0.1.32d.
+NEXT (needs community/hardware, NOT more local trial-and-error):
+1. os-vector / WireOS Discord with the above (blank face +
+   VisionComponent.TooLongSinceFrameWasCaptured on mark_complete_and_exit).
+2. A USB Bluetooth dongle on the Pi would fix the UI-BLE driver wedge (Pi 4
+   built-in BT + wire-pod BLE is a known-flaky combo) -- lets the UI flow run.
+3. Consider a different/older WireOS or another CFW if this build's onboarding
+   is simply broken for escapepod.
 
 ### P2-04  Flash ep firmware via local OTA  [x] (DEAD END -- superseded by P2-06)
 Attempted: get the bot onto retail `ep` firmware so it points at escapepod.local
