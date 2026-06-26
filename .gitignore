@@ -18,6 +18,12 @@ env/
 *.cert
 *.pem
 .env
+# SSH keys / OTA images (robot dev keys and large firmware blobs stay out)
+ssh_root_key
+*ssh*key*
+*SshKey*
+id_rsa*
+*.ota
 
 # Pi boot-partition staging files that carry secrets (password hash, Wi-Fi).
 # Only the sanitized templates (*.example) are tracked.
