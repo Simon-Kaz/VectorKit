@@ -260,13 +260,26 @@ Pi hostname stays `vector-pod` (both vector-pod.local and escapepod.local
 resolve). Pi Bluetooth unused now.
 TORN DOWN earlier: temp OTA servers + ~340MB cached .ota images.
 
-### P2-03  Authenticate the Python SDK  [ ]
+### P2-03  Authenticate the Python SDK  [x]
 Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
 Files: `docs/setup-vector.md` (step 4), `prototypes/hello-vector/`.
 Steps: `pip install -e libs/vendor/wirepod-vector-python-sdk` then
 `python -m anki_vector.configure`.
 Done when: `python prototypes/hello-vector/main.py` connects, prints battery,
 and Vector speaks.
+OUTCOME 2026-06-26: DONE. Installed the SDK into `.venv` and ran
+`anki_vector.configure` (serial 00805A35, name Vector-Z3Y1, ip 192.168.178.67,
+wire-pod 192.168.178.66:8080); cert + GUID written to `~/.anki_vector/`.
+hello-vector connects over gRPC, prints battery (~3.99V level 2), and Vector
+spoke "Hello. The pipeline works." Notes for next time:
+- The configure script's Anki-cloud login is stubbed out (hardcoded token) since
+  wire-pod is escape-pod; it only asks "proceed?" + the wire-pod web IP:port.
+- First connect can time out on the behavior-control grant
+  (`_request_control` -> asyncio TimeoutError) even though auth/gRPC are fine; a
+  retry succeeds. Connecting with `behavior_control_level=None` reads battery
+  without needing control, useful to isolate auth from the control grant.
+- Vector must be awake/on the charger; the bot does not answer ICMP ping but 443
+  is reachable.
 
 ---
 
