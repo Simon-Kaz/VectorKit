@@ -28,7 +28,7 @@ Detail: `docs/development.md`.
 
 ---
 
-## Phase 1: Self-hosted server  (done)
+## Phase 1: Self-hosted server  (mostly done -- P1-03 IP pin open)
 
 ### P1-01  Provision the Pi host  [x]
 Headless Pi 4B on Wi-Fi, reachable over SSH as `vector@vector-pod.local`.
@@ -50,7 +50,7 @@ Done when: the Pi keeps the same IP across reboots and lease renewals.
 
 ---
 
-## Phase 2: Robot onboarding  (next)
+## Phase 2: Robot onboarding  (done)
 
 ### P2-00  Get Vector onto Wi-Fi  [x]
 Goal: connect the bot to the LAN so it has an IP (prerequisite for every
@@ -59,9 +59,12 @@ Steps: use the BLE setup flow (`https://wpsetup.keriganc.com` from a
 Bluetooth-capable Chromium browser) to join the bot to Wi-Fi.
 Outcome: joined the FRITZ!Box; bot got `192.168.178.67` on 2026-06-24.
 
-### P2-00b  Obtain the OSKR SSH key  [b]
+### P2-00b  Obtain the OSKR SSH key  [x]  (resolved via P2-06, not recovered)
 Goal: get the dev-unlock SSH key for this bot.
-Status: LOST, likely unrecoverable. An OSKR bot's `/data/ssh/authorized_keys`
+Status: original DDL-era key LOST/unrecoverable, but the GOAL (root SSH for the
+wire-pod setup) is met -- P2-06 flashing unlock-prod + WireOS makes the bot
+accept froggitti's fresh `ssh_root_key`. History of the dead recovery routes:
+An OSKR bot's `/data/ssh/authorized_keys`
 holds two keys: a per-bot `id_rsa_Vector-Z3Y1` (generated on the bot, was
 downloaded from the dead DDL portal) and DDL's shared static dev key
 (`digital_dream_labs_dev_key`, == wire-pod's `ssh_root_key`). Tested both:
@@ -160,6 +163,27 @@ NEXT (needs community/hardware, NOT more local trial-and-error):
    built-in BT + wire-pod BLE is a known-flaky combo) -- lets the UI flow run.
 3. Consider a different/older WireOS or another CFW if this build's onboarding
    is simply broken for escapepod.
+
+### P2-03  Authenticate the Python SDK  [x]
+Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
+Files: `docs/setup-vector.md` (step 4), `prototypes/hello-vector/`.
+Steps: `pip install -e libs/vendor/wirepod-vector-python-sdk` then
+`python -m anki_vector.configure`.
+Done when: `python prototypes/hello-vector/main.py` connects, prints battery,
+and Vector speaks.
+OUTCOME 2026-06-26: DONE. Installed the SDK into `.venv` and ran
+`anki_vector.configure` (serial 00805A35, name Vector-Z3Y1, ip 192.168.178.67,
+wire-pod 192.168.178.66:8080); cert + GUID written to `~/.anki_vector/`.
+hello-vector connects over gRPC, prints battery (~3.99V level 2), and Vector
+spoke "Hello. The pipeline works." Notes for next time:
+- The configure script's Anki-cloud login is stubbed out (hardcoded token) since
+  wire-pod is escape-pod; it only asks "proceed?" + the wire-pod web IP:port.
+- First connect can time out on the behavior-control grant
+  (`_request_control` -> asyncio TimeoutError) even though auth/gRPC are fine; a
+  retry succeeds. Connecting with `behavior_control_level=None` reads battery
+  without needing control, useful to isolate auth from the control grant.
+- Vector must be awake/on the charger; the bot does not answer ICMP ping but 443
+  is reachable.
 
 ### P2-04  Flash ep firmware via local OTA  [x] (DEAD END -- superseded by P2-06)
 Attempted: get the bot onto retail `ep` firmware so it points at escapepod.local
@@ -260,30 +284,19 @@ Pi hostname stays `vector-pod` (both vector-pod.local and escapepod.local
 resolve). Pi Bluetooth unused now.
 TORN DOWN earlier: temp OTA servers + ~340MB cached .ota images.
 
-### P2-03  Authenticate the Python SDK  [x]
-Goal: write robot creds to `~/.anki_vector/` so code can connect over gRPC.
-Files: `docs/setup-vector.md` (step 4), `prototypes/hello-vector/`.
-Steps: `pip install -e libs/vendor/wirepod-vector-python-sdk` then
-`python -m anki_vector.configure`.
-Done when: `python prototypes/hello-vector/main.py` connects, prints battery,
-and Vector speaks.
-OUTCOME 2026-06-26: DONE. Installed the SDK into `.venv` and ran
-`anki_vector.configure` (serial 00805A35, name Vector-Z3Y1, ip 192.168.178.67,
-wire-pod 192.168.178.66:8080); cert + GUID written to `~/.anki_vector/`.
-hello-vector connects over gRPC, prints battery (~3.99V level 2), and Vector
-spoke "Hello. The pipeline works." Notes for next time:
-- The configure script's Anki-cloud login is stubbed out (hardcoded token) since
-  wire-pod is escape-pod; it only asks "proceed?" + the wire-pod web IP:port.
-- First connect can time out on the behavior-control grant
-  (`_request_control` -> asyncio TimeoutError) even though auth/gRPC are fine; a
-  retry succeeds. Connecting with `behavior_control_level=None` reads battery
-  without needing control, useful to isolate auth from the control grant.
-- Vector must be awake/on the charger; the bot does not answer ICMP ping but 443
-  is reachable.
-
 ---
 
-## Phase 3: Prototypes & solutions  (backlog)
+## Phase 3: Prototypes & solutions  (next)
+
+Direction (owner, 2026-06-26): work the order below, foundation first.
+1. FOUNDATION -- a full, reliably working setup for both wire-pod and Vector
+   that survives reboots. The onboarding arc (Phase 2) is done and voice + SDK
+   work; remaining hardening is P1-03 (pin the Pi IP) and P3-01 (SDK runs from
+   the Pi). Treat this as the prerequisite gate for everything below.
+2. UNDERSTAND -- lay out the architecture and how it all actually works end to
+   end before building on it (P4-03 diagrams, and P5 for the firmware/OTA side).
+3. BUILD -- then the feature/exploration work: LLM gateway (P3-03), refactor /
+   modernize the codebase (P3-04), and the self-hosted firmware pipeline (P5).
 
 ### P3-01  Verify the SDK fork builds on the Pi  [ ]
 Goal: confirm the vendored SDK's proto/build works on arm64 + the Pi's Python.
@@ -294,6 +307,35 @@ Done when: the SDK imports and `hello-vector` runs from the Pi.
 ### P3-02  Pick the second-Pi display project  [ ]
 Goal: decide what the Pi Zero 2 W + Pimoroni Display HAT Mini should do
 (status dashboard, robot face, etc.). Output: a new prototype dir + tasks.
+
+### P3-03  LLM gateway: pluggable model backend  [ ]
+Goal: let Vector use any LLM -- local or cloud, any provider -- behind a single
+interface, instead of being tied to one vendor. wire-pod already has some
+"knowledge graph"/LLM hooks; decide whether to extend those or sit a gateway in
+front of them.
+Open questions to resolve first (spike, not commit):
+- Integration point: intercept at wire-pod (intent/knowledge-graph handler) vs.
+  drive responses from our own SDK code over gRPC. Which gives cleaner control
+  of TTS + behaviors?
+- Abstraction: adopt an existing gateway/proxy (e.g. an OpenAI-compatible
+  shim so any backend speaks one API) vs. a thin in-repo provider interface.
+  Prefer not to reinvent if a maintained option fits.
+- Backends to support day one: at least one local (e.g. Ollama) and one cloud;
+  config-switchable, no code change to swap.
+Depends on: P3-01 (SDK proven) and P4-03 (know where the seams are).
+Done when: a design note picks the integration point + abstraction, and a
+prototype answers a Vector voice prompt through at least one local and one cloud
+model, switchable by config.
+
+### P3-04  Refactor / modernize the codebase  [ ]
+Goal: assess what in the vendored SDK fork (and our own code) is outdated or
+worth replacing, and do it deliberately rather than ad hoc. The SDK is an
+abandoned fork we now own.
+Scope to define after P3-01/P4-03: e.g. Python version + async stack currency,
+dependency pinning, dead Anki-cloud code paths (login is already stubbed -- see
+P2-03), proto regeneration, packaging.
+Done when: a short assessment lists what to keep / replace / drop with reasons,
+and the agreed quick wins are applied with CI green.
 
 (Add prototype ideas here as they come up.)
 
@@ -346,6 +388,42 @@ how voice and control flow end-to-end.
 
 ---
 
+## Phase 5: Self-hosted firmware & OTA pipeline  (backlog)
+
+Own the whole flashing flow instead of depending on third-party web setups
+(keriganc / froggitti / techshop82) and their OTA hosting. Builds on P4-02,
+which already established those are one open-source web app pointed at different
+OTA backends, and that wire-pod bundles its own copy at `chipper/webroot/`.
+Gate: do this AFTER the foundation + architecture are solid (Phase 3 step 1-2).
+
+### P5-01  Self-host the Vector Web Setup + all OTAs  [ ]
+Goal: a setup site and OTA host WE control, serving every image the onboarding
+flow needs so no third-party site is required: prod-unlock, dev-unlock, WireOS
+(CFW), and the latest official OS as a clean base.
+Steps (to refine): mirror the OTAs (record source + checksums + signing type --
+prod vs dev/OSKR, the distinction that broke P2-04); host them with HTTP
+range/206 support (nginx, not python http.server -- see P2-04 note); take the
+bundled `chipper/webroot/` copy and repoint its hardcoded URLs
+(`js/ble.js`: wpsetup.keriganc.com line 1, OTA URL line 234) at our host.
+Done when: a Vector can be unlocked + flashed end to end from our own site +
+OTA host, with zero third-party dependencies, and the OTA set is checksummed.
+
+### P5-02  Understand OTA internals + build a custom OTA  [ ]
+Goal: learn what actually goes into a Vector OTA and whether building our own is
+useful (vs. just hosting existing ones). Reverse the format, then attempt a
+minimal custom image.
+Approach: dissect an official OTA's structure (the .tar contents the recovery OS
+parses -- recall P2-06: old 0.9.0 recovery couldn't parse a 3.0.1 image), the
+signing model (dev/OSKR vs prod keys), and the manifest/payload layout.
+Worked example: take a base official OS and diff WireOS against it to see what a
+real CFW changes -- via froms commit history / build scripts if available, else
+by comparing unpacked images. Document the delta as a teaching example.
+Done when: a doc explains OTA anatomy + signing, shows the WireOS-vs-stock diff
+as a worked example, and states whether a custom OTA is worth building for us
+(with a minimal proof-of-concept image if yes).
+
+---
+
 ## Parking lot
 
 Unscheduled ideas, decisions to revisit, things noticed mid-task. Promote to a
@@ -353,3 +431,6 @@ real task when ready.
 
 - Harden SSH: set `password_authentication = false` once key login is trusted.
 - Consider whether to track a `requirements`-pinned SDK build for CI.
+- SDK behavior-control grant flakes on first connect (`_request_control` ->
+  asyncio TimeoutError) though auth/gRPC are fine; retry works. Watch for this
+  in Phase 3 prototypes -- may want a connect-retry/backoff helper. (From P2-03.)
