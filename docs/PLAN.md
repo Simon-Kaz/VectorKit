@@ -413,6 +413,22 @@ listeners, Vosk, intents, jdocs, escape-pod certs, mDNS, bundled webroot), and
 All three validated by rendering to SVG with mermaid-cli; `make check` green.
 Outcome: PR #10.
 
+### P4-04  Publish a docs website (GitHub Pages)  [~]
+Goal: surface the docs (architecture diagrams + guides) as a website at the
+front of the repo, instead of only being readable as raw markdown.
+Approach: static HTML + CSS in `docs/`, served by GitHub Pages from `main`
+`/docs`. `index.html` fetches the existing `docs/*.md` at runtime and renders
+them client-side with marked.js + mermaid.js (CDN), so the markdown stays the
+single source of truth -- no build step, no duplication. `.nojekyll` disables
+Jekyll. Also revamp the README for the current state (drop the stale retail-`ep`
+firmware claim; it is WireOS Dev + web-UI onboarding now).
+Done when: the site renders Home + all docs with the Mermaid diagrams drawing,
+README points at it, and Pages is enabled (Settings -> Pages -> main /docs).
+OUTCOME 2026-06-27: site built (`docs/index.html`, `style.css`, `.nojekyll`);
+headless-browser smoke test passes (all 3 mermaid diagrams render, tables OK,
+cross-doc links rewritten to hash routes, no console errors). README revamped.
+Owner still needs to flip on Pages in repo Settings. Outcome: PR #11.
+
 ---
 
 ## Phase 5: Self-hosted firmware & OTA pipeline  (backlog)
