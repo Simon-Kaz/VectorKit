@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VectorKit docs</title>
+  <meta name="description" content="Self-hosted Anki Vector stack: wire-pod on a Raspberry Pi, Python over gRPC." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1419'/%3E%3Ctext x='16' y='22' font-size='18' font-family='monospace' fill='%234fb0c6' text-anchor='middle'%3EV%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#home">VectorKit</a>
+    <button id="navToggle" class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+    <a class="repo-link" href="https://github.com/Simon-Kaz/VectorKit" target="_blank" rel="noopener">GitHub</a>
+  </header>
+
+  <div class="layout">
+    <nav id="sidebar" class="sidebar">
+      <ul>
+        <li><a href="#home" data-page="home">Home</a></li>
+        <li><a href="#architecture" data-page="architecture">Architecture</a></li>
+        <li><a href="#setup" data-page="setup">Setup guide</a></li>
+        <li><a href="#landscape" data-page="landscape">Ecosystem</a></li>
+        <li><a href="#development" data-page="development">Development</a></li>
+        <li><a href="#roadmap" data-page="roadmap">Roadmap</a></li>
+      </ul>
+    </nav>
+
+    <main id="content" class="content">Loading...</main>
+  </div>
+
+  <!-- Hand-written landing page, shown for #home. Everything else is rendered
+       from the markdown files in this directory at runtime. -->
+  <template id="home-template">
+    <section class="hero">
+      <h1>VectorKit</h1>
+      <p class="tagline">
+        Running an Anki Vector with no dependency on Anki's dead cloud. A
+        Raspberry Pi runs <code>wire-pod</code> as the always-on brain; Python
+        drives the robot over its gRPC API.
+      </p>
+    </section>
+
+    <section class="cards">
+      <a class="card" href="#architecture">
+        <h3>Architecture</h3>
+        <p>Diagrams of the hardware/network layout, wire-pod internals, and how
+        voice and control flow end to end.</p>
+      </a>
+      <a class="card" href="#setup">
+        <h3>Setup guide</h3>
+        <p>How our Vector got onto self-hosted wire-pod, the confirmed working
+        path, and the dead ends to skip.</p>
+      </a>
+      <a class="card" href="#landscape">
+        <h3>Ecosystem</h3>
+        <p>The Vector landscape after Anki: servers, firmware, SDKs, and why we
+        chose this stack.</p>
+      </a>
+      <a class="card" href="#development">
+        <h3>Development</h3>
+        <p>Local validation: the git hooks and <code>make check</code> that
+        mirror CI exactly.</p>
+      </a>
+    </section>
+
+    <section class="stack">
+      <h2>The stack in three layers</h2>
+      <ol>
+        <li><strong>Server</strong> (cloud replacement) &mdash; <code>wire-pod</code>
+          on a Pi 4B: offline Vosk STT, intents, a web UI, escape-pod certs.</li>
+        <li><strong>Auth / setup</strong> &mdash; flash community firmware
+          (WireOS Dev) and onboard the bot to wire-pod via its web UI.</li>
+        <li><strong>Control</strong> &mdash; our fork of the Vector Python SDK
+          talking to the robot's gRPC API.</li>
+      </ol>
+    </section>
+  </template>
+
+  <script type="module">
+    import { marked } from "https://cdn.jsdelivr.net/npm/marked@14.1.3/lib/marked.esm.js";
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+
+    // page id -> markdown file in this directory
+    const PAGES = {
+      architecture: "architecture.md",
+      setup: "setup-vector.md",
+      landscape: "landscape.md",
+      development: "development.md",
+      roadmap: "PLAN.md",
+    };
+    // markdown filename (basename) -> page id, for rewriting cross-doc links
+    const FILE_TO_PAGE = {
+      "architecture.md": "architecture",
+      "setup-vector.md": "setup",
+      "landscape.md": "landscape",
+      "development.md": "development",
+      "plan.md": "roadmap",
+    };
+    const REPO_BLOB = "https://github.com/Simon-Kaz/VectorKit/blob/main/";
+
+    const content = document.getElementById("content");
+
+    function slugify(text) {
+      return text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-");
+    }
+
+    // Give headings ids so links and the browser back button can anchor.
+    function addHeadingIds(root) {
+      const seen = {};
+      root.querySelectorAll("h1, h2, h3, h4").forEach((h) => {
+        let id = slugify(h.textContent);
+        if (!id) return;
+        if (seen[id] !== undefined) { seen[id]++; id = id + "-" + seen[id]; }
+        else { seen[id] = 0; }
+        h.id = id;
+      });
+    }
+
+    // Turn ```mermaid fences into elements mermaid can render.
+    async function renderMermaid(root) {
+      const blocks = root.querySelectorAll("code.language-mermaid");
+      blocks.forEach((code) => {
+        const pre = code.closest("pre");
+        const holder = document.createElement("pre");
+        holder.className = "mermaid";
+        holder.textContent = code.textContent; // decoded source
+        pre.replaceWith(holder);
+      });
+      if (root.querySelector(".mermaid")) {
+        await mermaid.run({ nodes: root.querySelectorAll(".mermaid") });
+      }
+    }
+
+    // Rewrite links: cross-doc .md -> hash routes; other repo-relative -> GitHub.
+    function rewriteLinks(root) {
+      root.querySelectorAll("a[href]").forEach((a) => {
+        const href = a.getAttribute("href");
+        if (!href || href.startsWith("#")) return;
+        if (/^[a-z]+:\/\//i.test(href) || href.startsWith("mailto:")) {
+          a.target = "_blank";
+          a.rel = "noopener";
+          return;
+        }
+        // Strip ./ and any leading path; split off a #section anchor.
+        const [path, anchor] = href.split("#");
+        const base = path.replace(/^\.\//, "");
+        const file = base.split("/").pop().toLowerCase();
+        if (FILE_TO_PAGE[file]) {
+          a.setAttribute("href", "#" + FILE_TO_PAGE[file] + (anchor ? "-" + slugify(anchor) : ""));
+        } else {
+          // A repo file we do not serve (e.g. infra/.../README.md) -> GitHub.
+          a.setAttribute("href", REPO_BLOB + base + (anchor ? "#" + anchor : ""));
+          a.target = "_blank";
+          a.rel = "noopener";
+        }
+      });
+    }
+
+    function setActiveNav(page) {
+      document.querySelectorAll(".sidebar a").forEach((a) => {
+        a.classList.toggle("active", a.dataset.page === page);
+      });
+    }
+
+    function showHome() {
+      const tpl = document.getElementById("home-template");
+      content.innerHTML = "";
+      content.appendChild(tpl.content.cloneNode(true));
+      content.classList.add("home");
+      window.scrollTo(0, 0);
+    }
+
+    async function showDoc(page) {
+      content.classList.remove("home");
+      content.innerHTML = "<p class='status'>Loading...</p>";
+      try {
+        const res = await fetch(PAGES[page], { cache: "no-cache" });
+        if (!res.ok) throw new Error(res.status + " " + res.statusText);
+        const md = await res.text();
+        content.innerHTML = marked.parse(md);
+        addHeadingIds(content);
+        rewriteLinks(content);
+        await renderMermaid(content);
+        window.scrollTo(0, 0);
+      } catch (err) {
+        content.innerHTML =
+          "<p class='status error'>Failed to load this page (" +
+          String(err.message || err) +
+          "). Try refreshing.</p>";
+      }
+    }
+
+    async function route() {
+      // Hash is "#page" or "#page-section-anchor". No page key contains a dash,
+      // so the part before the first dash is the page; the rest is the section.
+      const raw = location.hash.replace(/^#/, "");
+      const dash = raw.indexOf("-");
+      const page = dash === -1 ? raw : raw.slice(0, dash);
+      const section = dash === -1 ? "" : raw.slice(dash + 1);
+      const key = page in PAGES ? page : "home";
+      setActiveNav(key);
+      if (key === "home") { showHome(); return; }
+      await showDoc(key);
+      if (section) {
+        const el = document.getElementById(section);
+        if (el) el.scrollIntoView();
+      }
+    }
+
+    window.addEventListener("hashchange", route);
+    route();
+
+    // Mobile nav toggle.
+    const sidebar = document.getElementById("sidebar");
+    document.getElementById("navToggle").addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+    });
+    sidebar.addEventListener("click", (e) => {
+      if (e.target.tagName === "A") sidebar.classList.remove("open");
+    });
+  </script>
+</body>
+</html>
