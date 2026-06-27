@@ -10,6 +10,9 @@ Orient yourself from these (read what the task needs, not everything):
 - `docs/architecture.md` - how the pieces connect.
 - `docs/landscape.md` - the ecosystem and why we chose this stack.
 - `docs/development.md` - local validation (hooks, `make check`).
+- `docs/references.md` - external Vector docs (TRM, community wiki, link hub).
+  Consult BEFORE editing anything touching Vector internals (firmware, OTA,
+  behaviors, SDK protos) so we are not working blind.
 - `infra/` - Pi provisioning and wire-pod install.
 
 ## Working a task
