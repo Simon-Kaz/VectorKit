@@ -28,7 +28,7 @@ Detail: `docs/development.md`.
 
 ---
 
-## Phase 1: Self-hosted server  (mostly done -- P1-03 IP pin open)
+## Phase 1: Self-hosted server  (done)
 
 ### P1-01  Provision the Pi host  [x]
 Headless Pi 4B on Wi-Fi, reachable over SSH as `vector@vector-pod.local`.
@@ -42,11 +42,13 @@ it served nothing on 443 and never advertised `escapepod.local` -- breaking bot
 auth. Switched to escape-pod mode via `GET /api-chipper/use_ep`. Production/OSKR
 Vectors REQUIRE escape-pod mode; pick "escapepod.local" certs in `setup.sh`.
 
-### P1-03  Pin the Pi's IP  [ ]
+### P1-03  Pin the Pi's IP  [x]
 Goal: stop the Pi's address from moving so wire-pod/SDK config stay valid.
 Steps: add a DHCP reservation on the FRITZ!Box for wlan0 MAC
 `e4:5f:01:8f:ab:db`.
 Done when: the Pi keeps the same IP across reboots and lease renewals.
+Outcome 2026-06-27: marked done by owner -- DHCP reservation set on the FRITZ!Box
+so the Pi holds `192.168.178.66` (the address wire-pod/SDK config assume).
 
 ---
 
@@ -291,18 +293,36 @@ TORN DOWN earlier: temp OTA servers + ~340MB cached .ota images.
 Direction (owner, 2026-06-26): work the order below, foundation first.
 1. FOUNDATION -- a full, reliably working setup for both wire-pod and Vector
    that survives reboots. The onboarding arc (Phase 2) is done and voice + SDK
-   work; remaining hardening is P1-03 (pin the Pi IP) and P3-01 (SDK runs from
-   the Pi). Treat this as the prerequisite gate for everything below.
+   work; the remaining hardening (P1-03 pin the Pi IP, P3-01 SDK runs from the
+   Pi) is now DONE. This prerequisite gate is met -- the rest of Phase 3 is clear
+   to start.
 2. UNDERSTAND -- lay out the architecture and how it all actually works end to
    end before building on it (P4-03 diagrams, and P5 for the firmware/OTA side).
 3. BUILD -- then the feature/exploration work: LLM gateway (P3-03), refactor /
    modernize the codebase (P3-04), and the self-hosted firmware pipeline (P5).
 
-### P3-01  Verify the SDK fork builds on the Pi  [ ]
+### P3-01  Verify the SDK fork builds on the Pi  [x]
 Goal: confirm the vendored SDK's proto/build works on arm64 + the Pi's Python.
 Why: it is an abandoned fork; we own it and need to know it runs before
 building on it. Files: `libs/vendor/wirepod-vector-python-sdk`.
 Done when: the SDK imports and `hello-vector` runs from the Pi.
+OUTCOME 2026-06-27: DONE. Cloned the repo (`--recurse-submodules`; the SDK is a
+git submodule -> `Simon-Kaz/wirepod-vector-python-sdk`) to `~/VectorKit` on the
+Pi, made a `.venv`, and `pip install -e`'d the SDK. Everything resolved to
+prebuilt arm64 manylinux wheels -- NO source compilation (good, since the Pi has
+no python dev headers / pip). Verified, all on the Pi:
+- `import anki_vector` (0.8.1) + every `messaging/*_pb2`/`_pb2_grpc` + the
+  `vectorkit` wrapper import cleanly.
+- `hello-vector` connects over gRPC, prints battery (4.1V level 2), Vector
+  speaks; exit 0. Control was granted on first try (no `_request_control`
+  timeout this run).
+Key finding for P3-04: the SDK declares Python 3.7-3.11 but runs FINE on the
+Pi's Python 3.13.5 with all-modern deps -- aiogrpc 1.8, grpcio 1.81.1,
+protobuf 7.35.1, numpy 2.5.0, Pillow 12.2.0, cryptography 49.0.0. So the old
+version ceiling is stale, not a real constraint.
+Pi env: Debian 13 (trixie), aarch64, Python 3.13.5; system pip is absent /
+PEP-668 externally-managed, so the `.venv` is required. SDK creds
+(`~/.anki_vector/`) were already present on the Pi from earlier work.
 
 ### P3-02  Pick the second-Pi display project  [ ]
 Goal: decide what the Pi Zero 2 W + Pimoroni Display HAT Mini should do
