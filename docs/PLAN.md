@@ -396,7 +396,7 @@ Done when: a short doc explains what the page is, the upstream repo, which copy
 we control (the bundled one), how to edit + self-host it, and how to point it at
 our own OTAs instead of third-party sites.
 
-### P4-03  Architecture diagrams for the whole project  [ ]
+### P4-03  Architecture diagrams for the whole project  [x]
 Goal: diagrams of how the pieces connect, since the architecture has never been
 laid out visually. Suggested views: (a) hardware/network -- Vector, Pi
 (wire-pod), router, dev machine, the second Pi Zero; (b) wire-pod internals --
@@ -405,6 +405,13 @@ chipper, escape-pod certs/mDNS, Vosk STT, jdocs, the bundled web setup app, BLE;
 :443 -> STT/intent -> response. Put in `docs/architecture.md` (Mermaid).
 Done when: `docs/architecture.md` has the diagrams and a fresh reader can follow
 how voice and control flow end-to-end.
+OUTCOME 2026-06-27: DONE. Rewrote `docs/architecture.md` with all three Mermaid
+views -- (A) hardware/network graph (Vector .67, Pi .66, dev machine, future Pi
+Zero), (B) wire-pod internals graph (chipper non-BLE binary, 443/8084/8080
+listeners, Vosk, intents, jdocs, escape-pod certs, mDNS, bundled webroot), and
+(C) a sequence diagram for the voice path and the independent gRPC control path.
+All three validated by rendering to SVG with mermaid-cli; `make check` green.
+Outcome: PR #10.
 
 ---
 
