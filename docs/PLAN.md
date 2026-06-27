@@ -427,7 +427,7 @@ README points at it, and Pages is enabled (Settings -> Pages -> main /docs).
 OUTCOME 2026-06-27: site built (`docs/index.html`, `style.css`, `.nojekyll`);
 headless-browser smoke test passes (all 3 mermaid diagrams render, tables OK,
 cross-doc links rewritten to hash routes, no console errors). README revamped.
-Owner still needs to flip on Pages in repo Settings. PR #TBD.
+Owner still needs to flip on Pages in repo Settings. Outcome: PR #11.
 
 ---
 
