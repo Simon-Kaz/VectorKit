@@ -84,6 +84,10 @@ Go is the native language of wire-pod/chipper - use it for server plugins.
 - `anki/vector-python-sdk` - official SDK (abandoned).
 - project-victor.org - early community effort; largely historical now.
 
+For reverse-engineered internals (hardware, firmware, behaviors, the
+gRPC/protobuf protocols) see `references.md` - the TRM, the community wiki, and
+a curated link hub. Consult those before touching Vector internals.
+
 ## Decision
 
 - Server: wire-pod, installed from WirePod releases.
