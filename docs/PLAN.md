@@ -411,7 +411,7 @@ Zero), (B) wire-pod internals graph (chipper non-BLE binary, 443/8084/8080
 listeners, Vosk, intents, jdocs, escape-pod certs, mDNS, bundled webroot), and
 (C) a sequence diagram for the voice path and the independent gRPC control path.
 All three validated by rendering to SVG with mermaid-cli; `make check` green.
-PR #TBD.
+Outcome: PR #10.
 
 ---
 
