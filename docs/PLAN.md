@@ -383,7 +383,7 @@ Implementation idea: a Claude Code skill or a guided script. Source material is
 Done when: a fresh Vector can be onboarded by following the guide alone, with no
 manual log-spelunking.
 
-### P4-02  Understand & document the "Vector Web Setup" page  [ ]
+### P4-02  Understand & document the "Vector Web Setup" page  [x]
 Goal: demystify the setup sites we bounced between -- wpsetup.keriganc.com,
 vector.techshop82.com, websetup.froggitti.net / unlock-prod.froggitti.net.
 Facts established 2026-06-25: they are all the SAME open-source "Vector Web
@@ -395,6 +395,18 @@ wire-pod SHIPS ITS OWN COPY at `chipper/webroot/` (served on :8080); e.g.
 Done when: a short doc explains what the page is, the upstream repo, which copy
 we control (the bundled one), how to edit + self-host it, and how to point it at
 our own OTAs instead of third-party sites.
+OUTCOME 2026-06-27: DONE -> `docs/web-setup.md` (+ docs-site nav/card). Verified
+against the LIVE `chipper/webroot/` on the Pi. Refinement to the earlier note:
+there are TWO things, not one. (1) the standalone Web-Bluetooth app
+`digital-dream-labs/vector-web-setup` (MIT, Node) -- keriganc/techshop82/
+froggitti are instances of THIS, each on a different OTA backend. (2) wire-pod's
+OWN admin UI at `chipper/webroot/` (page title "Wire-Pod"), which is NOT a fork
+of #1 -- for BLE onboarding it either uses wire-pod's in-built BLE (P2-07) or
+links OUT to the keriganc-hosted #1. Confirmed the only hardcoded third-party
+URLs are both in `js/ble.js`: line 1 (`wpsetup.keriganc.com`, the link-out) and
+line 234 (`...:81/1.6.0.3331.ota`, flashed when in-built BLE sees a dev bot in
+recovery). Doc covers edit/self-host + the `main.js` webroot-vs-binary version
+guard. Feeds P5-01. PR #TBD.
 
 ### P4-03  Architecture diagrams for the whole project  [x]
 Goal: diagrams of how the pieces connect, since the architecture has never been
@@ -450,6 +462,8 @@ bundled `chipper/webroot/` copy and repoint its hardcoded URLs
 (`js/ble.js`: wpsetup.keriganc.com line 1, OTA URL line 234) at our host.
 Done when: a Vector can be unlocked + flashed end to end from our own site +
 OTA host, with zero third-party dependencies, and the OTA set is checksummed.
+See `docs/web-setup.md` (from P4-02) for the verified webroot layout, the two
+hardcoded URLs, and the edit/self-host notes.
 
 ### P5-02  Understand OTA internals + build a custom OTA  [ ]
 Goal: learn what actually goes into a Vector OTA and whether building our own is

@@ -86,5 +86,8 @@ SDK / protocol references (C# -- mine for protocol behavior, not code):
   asset formats those packages touch. Worth a look when a prototype needs to
   ship files onto Vector.
 
+For the browser setup/flashing flow specifically (keriganc/froggitti/techshop82
+and the copy wire-pod bundles), see `web-setup.md`.
+
 See `landscape.md` for why we chose this stack and `architecture.md` for how our
 pieces connect.
