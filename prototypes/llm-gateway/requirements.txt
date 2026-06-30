@@ -1,0 +1,4 @@
+# Self-contained deps for the gateway prototype (root pyproject stays dep-free).
+fastapi
+uvicorn[standard]
+anthropic
