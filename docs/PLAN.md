@@ -411,7 +411,10 @@ item. Done when: Vector wakes to the chosen phrase.
 Captured from the long, painful P2 onboarding. Goal: never repeat the manual
 trial-and-error, and finally understand the system.
 
-### P4-01  Interactive Vector onboarding guide  [ ]
+### P4-01  Interactive Vector onboarding guide  [ ]  (FOLDED INTO P5-01)
+NOTE 2026-06-29: this is now the UX-revamp half of P5-01's self-hosted web setup
+app -- same deliverable, build it once. Kept here for the flow spec below; track
+the work under P5-01 / `docs/design/p5-01-self-host-web-setup.md`.
 Goal: a step-by-step, interactive helper that walks a user through onboarding a
 Vector onto our wire-pod, one stage at a time, instead of the manual slog we
 just did. Proposed flow:
@@ -509,6 +512,18 @@ Done when: a Vector can be unlocked + flashed end to end from our own site +
 OTA host, with zero third-party dependencies, and the OTA set is checksummed.
 See `docs/web-setup.md` (from P4-02) for the verified webroot layout, the two
 hardcoded URLs, and the edit/self-host notes.
+DESIGN NOTE 2026-06-29: `docs/design/p5-01-self-host-web-setup.md` -- the plan to
+act on when Phase 5 starts (not blocking other work). Decisions made so far:
+- Fork base chosen + created: `Simon-Kaz/vector-web-setup` (forked from
+  `bliteknight`, which tracks techshop82's OTA set; MIT LICENSE restored,
+  committed TLS key removed, lineage in the fork's NOTICE.md). Researched 5
+  forks; BLE/GATT layer is intact in all, so the work is config/hosting/UX.
+- Two-host split: setup app on HTTPS (GitHub Pages preferred -- Web Bluetooth
+  needs a secure context); OTAs on plain HTTP via nginx on the Pi (the robot
+  downloads them itself and can't do HTTPS during flash).
+- BLE: standardize on browser BLE; do NOT revive Pi in-built BLE (P2-07/08).
+- P4-01 (interactive onboarding guide) is FOLDED INTO this UX revamp -- same
+  deliverable, do it once. Open spikes listed in the design note.
 
 ### P5-02  Understand OTA internals + build a custom OTA  [ ]
 Goal: learn what actually goes into a Vector OTA and whether building our own is
