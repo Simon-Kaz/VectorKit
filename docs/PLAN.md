@@ -328,7 +328,7 @@ PEP-668 externally-managed, so the `.venv` is required. SDK creds
 Goal: decide what the Pi Zero 2 W + Pimoroni Display HAT Mini should do
 (status dashboard, robot face, etc.). Output: a new prototype dir + tasks.
 
-### P3-03  LLM gateway: pluggable model backend  [ ]
+### P3-03  LLM gateway: pluggable model backend  [~]
 Goal: let Vector use any LLM -- local or cloud, any provider -- behind a single
 interface, instead of being tied to one vendor. wire-pod already has some
 "knowledge graph"/LLM hooks; decide whether to extend those or sit a gateway in
@@ -346,6 +346,25 @@ Depends on: P3-01 (SDK proven) and P4-03 (know where the seams are).
 Done when: a design note picks the integration point + abstraction, and a
 prototype answers a Vector voice prompt through at least one local and one cloud
 model, switchable by config.
+DESIGN + DECISIONS 2026-06-30: `docs/design/p3-03-llm-gateway.md`. Spike resolved:
+wire-pod ALREADY has a pluggable LLM backend -- `chipper/pkg/wirepod/ttr/kgsim.go`
+provider switch (`together`/`openai`/`custom`); the `custom` case points an
+OpenAI-compatible client at any `endpoint`, streams, splits on punctuation, speaks
+via Vector's TTS, with interrupts built in. So:
+- Integration point = wire-pod's knowledge-graph `custom` provider (NOT SDK-over-
+  gRPC -- wire-pod gives STT/intents/TTS/interrupts for free).
+- Abstraction = a thin OpenAI-compat gateway WE own (`prototypes/llm-gateway/`,
+  FastAPI) that translates OpenAI-in -> Anthropic Messages API -> OpenAI-SSE-out.
+  LiteLLM kept as an easy future migration (identical wire-pod config).
+- Backend day one = Claude (`claude-haiku-4-5` default, `claude-opus-4-8` switch),
+  owner's personal API key. "one local + one cloud" demoed by Haiku<->Opus config
+  switch; the local (Ollama) half is descoped to P3-05 (no hosting capacity now,
+  gateway built to drop it in).
+Framed as Phase A of a TARS-on-Vector arc (`TARS-AI-Community/TARS-AI` is the
+analogous open project + validation): persona+memory (P3-06), vision (P3-07),
+local backend (P3-05), custom wake word (P3-08).
+STATUS 2026-06-30: in-progress -- design note + gateway prototype landed; pending
+end-to-end voice test on the Pi.
 
 ### P3-04  Refactor / modernize the codebase  [ ]
 Goal: assess what in the vendored SDK fork (and our own code) is outdated or
@@ -356,6 +375,32 @@ dependency pinning, dead Anki-cloud code paths (login is already stubbed -- see
 P2-03), proto regeneration, packaging.
 Done when: a short assessment lists what to keep / replace / drop with reasons,
 and the agreed quick wins are applied with CI green.
+
+### P3-05  LLM gateway: add an Ollama (local) backend  [ ]
+Goal: complete P3-03's "one local + one cloud" by adding a local backend to the
+gateway (`prototypes/llm-gateway/`), selectable via `LLM_BACKEND`. Local was
+descoped from P3-03 for lack of hosting capacity; the gateway was built to drop a
+backend in. Done when: setting `LLM_BACKEND=ollama` answers a Vector voice prompt
+through a local model with no wire-pod change. See `docs/design/p3-03-llm-gateway.md`.
+
+### P3-06  TARS persona + conversation memory in the gateway  [ ]  (TARS Phase B)
+Goal: give Vector a character-card-style persona (system prompt) and multi-turn
+conversation memory, both held in the gateway. wire-pod keeps only ~16 messages;
+the gateway is the right home. Models the persona/memory that `TARS-AI` ships.
+Done when: Vector answers in a consistent persona and can reference an earlier
+turn in the same conversation. Builds on P3-03.
+
+### P3-07  SDK vision prototype  [ ]  (TARS Phase C)
+Goal: pull a camera frame from Vector over gRPC, caption/answer it with a vision
+model, and have Vector speak about what it sees. Independent of the voice path
+(this one IS SDK-driven, unlike P3-03). Models `TARS-AI`'s BLIP vision. Uses
+`vectorkit.robot_session` + the SDK camera API. Done when: "what do you see?"
+returns a spoken description of the live camera image.
+
+### P3-08  Custom "Hey X" wake word  [ ]
+Goal: give Vector a TARS-style custom wake word using escape-pod/wire-pod's
+existing custom wake-word option (viable today -- not firmware-locked). Polish
+item. Done when: Vector wakes to the chosen phrase.
 
 (Add prototype ideas here as they come up.)
 
