@@ -83,6 +83,12 @@ Go is the native language of wire-pod/chipper - use it for server plugins.
   dormant (2022-2023) but authoritative reference.
 - `anki/vector-python-sdk` - official SDK (abandoned).
 - project-victor.org - early community effort; largely historical now.
+- `TARS-AI-Community/TARS-AI` (successor to `poboisvert/GPTARS_Interstellar`) -
+  not a Vector project, but the closest analogous open robot AI stack: a modular
+  Python brain (pluggable LLM via one OpenAI-compatible `base_url`, STT, TTS,
+  trained wake word, character-card persona, RAG memory, vision, LLM tools). It
+  validates our P3-03 gateway design and is the north star for the TARS-on-Vector
+  arc (P3-05..P3-08). See `design/p3-03-llm-gateway.md`.
 
 For reverse-engineered internals (hardware, firmware, behaviors, the
 gRPC/protobuf protocols) see `references.md` - the TRM, the community wiki, and
