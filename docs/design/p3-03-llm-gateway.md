@@ -1,6 +1,7 @@
 # P3-03 design note: LLM gateway (pluggable model backend)
 
-Status: Phase A in progress (2026-06-30). See `PLAN.md` P3-03.
+Status: Phase A shipped (2026-06-30, PR #15); local (Ollama) backend added for
+P3-05 (2026-07-12). See `PLAN.md` P3-03 and P3-05.
 
 ## Problem
 
@@ -67,12 +68,20 @@ recommended path is the native Messages API, not a compatibility shim. The
 gateway translates **OpenAI-in -> Anthropic Messages API -> OpenAI-SSE-out**,
 which is exactly the bridge the native SDK is for.
 
-**Backend day one: Claude via the Anthropic API** (owner's personal key). Default
-model `claude-haiku-4-5` (fastest/cheapest -- right for short spoken answers),
-with `claude-opus-4-8` as the richer-answer switch. A local backend (Ollama) is
-deferred (no hosting capacity now) but the gateway is built to drop it in -- see
-P3-05. The task's "one local + one cloud, switchable by config" is demonstrated
-now by switching Haiku <-> Opus by config alone.
+**Backends: Claude (cloud) + Ollama (local), selected by `LLM_BACKEND`.**
+- *claude* -- Claude via the Anthropic API (owner's personal key). Default model
+  `claude-haiku-4-5` (fastest/cheapest -- right for short spoken answers), with
+  `claude-opus-4-8` as the richer-answer switch.
+- *ollama* -- a local Ollama server's `/api/chat` (default model `llama3.2`, via
+  `OLLAMA_HOST`/`OLLAMA_MODEL`). No API key; the transcript never leaves the LAN.
+
+Claude shipped in Phase A (P3-03); Ollama was added in P3-05, satisfying the
+task's "one local + one cloud, switchable by config" for real (cloud <-> local
+by one env var), not just Haiku <-> Opus. Each backend exposes the same tiny
+interface (`.model` + an async `stream()` yielding text deltas), and the
+Anthropic client is constructed only for the claude backend -- so a pure-local
+Ollama host runs the gateway with no API key and no `anthropic` dependency in
+play at runtime.
 
 ## Data flow
 
@@ -82,19 +91,23 @@ sequenceDiagram
     participant V as Vector
     participant P as wire-pod (escapepod.local:443)
     participant G as Our gateway (:8088)
-    participant A as Anthropic API (Claude)
+    participant B as Backend (LLM_BACKEND)
 
-    Note over U,A: LLM path -- transcript leaves the LAN to Anthropic (opt-in)
+    Note over U,B: LLM path -- claude leaves the LAN (opt-in); ollama stays local
     U->>V: "Hey Vector, I have a question" + the question
     V->>P: TLS 443 -- streamed audio
     P->>P: Vosk STT -> transcript; knowledge_question intent
     P->>G: POST /v1/chat/completions (OpenAI, stream=true)
-    G->>A: client.messages.stream() (Anthropic Messages API)
-    A-->>G: streamed text deltas
+    alt LLM_BACKEND=claude
+        G->>B: messages.stream() -> Anthropic API (cloud)
+    else LLM_BACKEND=ollama
+        G->>B: POST /api/chat -> local Ollama server (LAN)
+    end
+    B-->>G: streamed text deltas
     G-->>P: OpenAI SSE chunks (data: {...}) ... data: [DONE]
     P->>P: split on punctuation
     P->>V: SayText per sentence
-    V->>U: speaks Claude's answer
+    V->>U: speaks the answer
 ```
 
 Switch backend/model = edit the gateway's env + restart the gateway. wire-pod
@@ -121,10 +134,10 @@ config never changes after the one-time setup.
 On the LLM path, the transcribed question leaves the LAN and is sent to Anthropic.
 This is a deliberate departure from the otherwise fully self-hosted setup (voice,
 STT, intents all stay on the Pi). Only knowledge-graph questions take this path --
-normal intents (time, weather) never leave wire-pod. A local backend (P3-05)
-restores full self-hosting for the LLM path too; until then, cloud LLM use is an
-explicit, conscious opt-in enabled by setting `provider=custom` and turning the
-knowledge graph on.
+normal intents (time, weather) never leave wire-pod. This applies to the *claude*
+backend only; the *ollama* backend (P3-05) keeps the transcript on the LAN and
+restores full self-hosting for the LLM path too. Cloud LLM use is an explicit,
+conscious opt-in: choose `LLM_BACKEND=claude` and turn the knowledge graph on.
 
 ## wire-pod config recipe (one-time, no code change)
 
@@ -170,13 +183,13 @@ it only through wire-pod's voice path + the gRPC SDK):
 
 ## Roadmap
 
-- **Phase A (this task, P3-03):** thin Claude gateway, config-switchable model.
+- **Phase A (P3-03):** thin Claude gateway, config-switchable model. Shipped.
+- **P3-05:** Ollama (local) backend added to the gateway via `LLM_BACKEND` --
+  the deferred half of "one local + one cloud." Shipped.
 - **Phase B (P3-06):** TARS-style persona + conversation memory held in the
   gateway (wire-pod keeps only ~16 messages).
 - **Phase C (P3-07):** SDK-driven vision prototype -- gRPC camera frame -> vision
   model -> Vector speaks what it sees. Independent of the voice path.
-- **P3-05:** add an Ollama (local) backend to the gateway -- the deferred half of
-  "one local + one cloud."
 - **P3-08:** custom "Hey X" wake word via escape-pod's existing option.
 
 ## Prototype
