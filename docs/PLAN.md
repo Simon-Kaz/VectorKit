@@ -328,7 +328,7 @@ PEP-668 externally-managed, so the `.venv` is required. SDK creds
 Goal: decide what the Pi Zero 2 W + Pimoroni Display HAT Mini should do
 (status dashboard, robot face, etc.). Output: a new prototype dir + tasks.
 
-### P3-03  LLM gateway: pluggable model backend  [~]
+### P3-03  LLM gateway: pluggable model backend  [x]
 Goal: let Vector use any LLM -- local or cloud, any provider -- behind a single
 interface, instead of being tied to one vendor. wire-pod already has some
 "knowledge graph"/LLM hooks; decide whether to extend those or sit a gateway in
@@ -371,6 +371,14 @@ landed (Ollama backend behind `LLM_BACKEND`), so this reduces to one hardware
 session: run the voice test with `LLM_BACKEND=claude` (closes P3-03's original
 criterion) and again with `LLM_BACKEND=ollama` (closes the local+cloud
 requirement). Mark done after both pass.
+OUTCOME 2026-07-24: done. The real local backend that the 2026-07-12 ruling
+required now answers Vector by voice on hardware (see P3-05 OUTCOME) -- that
+satisfies "one local + one cloud, switchable by config": `LLM_BACKEND` picks the
+backend, wire-pod never changes. The `claude` (cloud) leg is verified as OpenAI
+SSE (Mac, 2026-07-12/07-24) but was NOT re-run by voice this session (owner chose
+to close on the local proof; the earlier Haiku<->Opus voice demo already exercised
+the claude path through wire-pod). Follow-up P3-10 added: optional by-voice
+`LLM_BACKEND=claude` confirmation with the owner's key.
 
 ### P3-04  Refactor / modernize the codebase  [ ]
 Goal: assess what in the vendored SDK fork (and our own code) is outdated or
@@ -382,7 +390,7 @@ P2-03), proto regeneration, packaging.
 Done when: a short assessment lists what to keep / replace / drop with reasons,
 and the agreed quick wins are applied with CI green.
 
-### P3-05  LLM gateway: add an Ollama (local) backend  [~]
+### P3-05  LLM gateway: add an Ollama (local) backend  [x]
 Goal: complete P3-03's "one local + one cloud" by adding a local backend to the
 gateway (`prototypes/llm-gateway/`), selectable via `LLM_BACKEND`. Local was
 descoped from P3-03 for lack of hosting capacity; the gateway was built to drop a
@@ -403,6 +411,17 @@ one-sentence answers, correct SSE, sub-5s on the Mac. PENDING: the wire-pod + ro
 leg (say "Hey Vector, I have a question" with `LLM_BACKEND=ollama`) -- shares the
 same hardware step as P3-03, so it closes "one local + one cloud" in one sitting.
 Mark done after that passes.
+OUTCOME 2026-07-24: done. Local voice path proven on real hardware end to end:
+"Hey Vector, I have a question" -> "why is the sky blue" -> wire-pod STT ->
+gateway (`LLM_BACKEND=ollama`) -> local Ollama (`qwen2.5:0.5b`) -> OpenAI SSE ->
+Vector spoke the answer. Gateway + Ollama run on the Pi itself (fully self-hosted,
+no key, transcript never leaves the LAN). Ollama installed via the manual arm64
+`.tar.zst` (the `curl|sh` installer landed an incomplete runner; the Pi's `/tmp`
+is a 923 MB tmpfs, too small for the ~1.5 GB archive -- download to `~`, extract
+with explicit `--zstd`). vector-pod is a 2 GB Pi 4B, not 4 GB: a 1B model spills
+to SD swap alongside wire-pod, so `qwen2.5:0.5b` (~1.2 GB resident, ~7s cold /
+~1s warm) is what fits -- `.env.example` default updated accordingly. Follow-ups
+added: P3-09 (make Ollama + gateway always-on systemd services on the Pi).
 
 ### P3-06  TARS persona + conversation memory in the gateway  [ ]  (TARS Phase B)
 Goal: give Vector a character-card-style persona (system prompt) and multi-turn
@@ -422,6 +441,26 @@ returns a spoken description of the live camera image.
 Goal: give Vector a TARS-style custom wake word using escape-pod/wire-pod's
 existing custom wake-word option (viable today -- not firmware-locked). Polish
 item. Done when: Vector wakes to the chosen phrase.
+
+### P3-09  Make the Pi Ollama + gateway always-on  [ ]
+Goal: the local voice brain should survive a reboot without manual steps. From
+the P3-05 hardware session, Ollama runs as a systemd service (`ollama`, user
+`ollama`) but the gateway was launched by hand under `nohup` (uvicorn on :8088,
+`~/VectorKit/prototypes/llm-gateway/.venv`, `.env` with `LLM_BACKEND=ollama`,
+`OLLAMA_MODEL=qwen2.5:0.5b`). Done when: a `vector-llm-gateway` systemd unit
+starts the gateway on boot (after `ollama.service`), and wire-pod's knowledge
+`custom` endpoint (`http://localhost:8088/v1`, set in
+`~/wire-pod/chipper/apiConfig.json`, backup `.bak-*` alongside) survives a full
+Pi reboot answering by voice. Note: `intentgraph=true` caused `DeadlineExceeded`
+on the knowledge stream; it is currently `false` -- keep it off unless retested.
+
+### P3-10  Confirm the claude (cloud) backend by voice  [ ]
+Goal: close the one leg skipped in the P3-03/P3-05 session. Set the gateway
+`.env` `LLM_BACKEND=claude` with the owner's personal `ANTHROPIC_API_KEY`
+(gitignored), restart only the gateway (wire-pod unchanged), and confirm Vector
+speaks a Claude answer -- proving the cloud<->local swap is a one-env-var change
+on real hardware. The SSE path is already verified; this is the by-voice
+confirmation. Optional / low priority.
 
 (Add prototype ideas here as they come up.)
 
