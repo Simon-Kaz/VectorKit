@@ -397,7 +397,9 @@ VERIFIED 2026-07-24: gateway -> Ollama half tested for real on the dev Mac again
 `gemma4` (Ollama 0.31.2) -- streamed a correct one-sentence spoken answer as OpenAI
 SSE (role -> content -> stop -> [DONE]). Found + fixed: reasoning models spend the
 whole num_predict budget on `thinking` and emit no `content`, so the gateway now
-sends `think: false` (no-op on non-thinking models). PENDING: the wire-pod + robot
+sends `think: false` (no-op on non-thinking models). Also retested against a
+Pi-sized model, `llama3.2:1b` (now the `.env.example` default) -- clean
+one-sentence answers, correct SSE, sub-5s on the Mac. PENDING: the wire-pod + robot
 leg (say "Hey Vector, I have a question" with `LLM_BACKEND=ollama`) -- shares the
 same hardware step as P3-03, so it closes "one local + one cloud" in one sitting.
 Mark done after that passes.
