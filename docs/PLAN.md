@@ -365,6 +365,12 @@ analogous open project + validation): persona+memory (P3-06), vision (P3-07),
 local backend (P3-05), custom wake word (P3-08).
 STATUS 2026-06-30: in-progress -- design note + gateway prototype landed; pending
 end-to-end voice test on the Pi.
+STATUS 2026-07-12: owner ruled the Haiku<->Opus switch does NOT satisfy "one local
++ one cloud"; kept open until P3-05 lands a real local backend. P3-05 code has now
+landed (Ollama backend behind `LLM_BACKEND`), so this reduces to one hardware
+session: run the voice test with `LLM_BACKEND=claude` (closes P3-03's original
+criterion) and again with `LLM_BACKEND=ollama` (closes the local+cloud
+requirement). Mark done after both pass.
 
 ### P3-04  Refactor / modernize the codebase  [ ]
 Goal: assess what in the vendored SDK fork (and our own code) is outdated or
@@ -376,12 +382,27 @@ P2-03), proto regeneration, packaging.
 Done when: a short assessment lists what to keep / replace / drop with reasons,
 and the agreed quick wins are applied with CI green.
 
-### P3-05  LLM gateway: add an Ollama (local) backend  [ ]
+### P3-05  LLM gateway: add an Ollama (local) backend  [~]
 Goal: complete P3-03's "one local + one cloud" by adding a local backend to the
 gateway (`prototypes/llm-gateway/`), selectable via `LLM_BACKEND`. Local was
 descoped from P3-03 for lack of hosting capacity; the gateway was built to drop a
 backend in. Done when: setting `LLM_BACKEND=ollama` answers a Vector voice prompt
 through a local model with no wire-pod change. See `docs/design/p3-03-llm-gateway.md`.
+STATUS 2026-07-12: code landed. The gateway now selects `claude` or `ollama` via
+`LLM_BACKEND`, both behind one interface (`.model` + async `stream()`); the
+Anthropic client/import is claude-only, so a pure-local Ollama host runs with no
+API key and without `anthropic` installed (both verified). SSE framing verified
+via TestClient. `make check` green.
+VERIFIED 2026-07-24: gateway -> Ollama half tested for real on the dev Mac against
+`gemma4` (Ollama 0.31.2) -- streamed a correct one-sentence spoken answer as OpenAI
+SSE (role -> content -> stop -> [DONE]). Found + fixed: reasoning models spend the
+whole num_predict budget on `thinking` and emit no `content`, so the gateway now
+sends `think: false` (no-op on non-thinking models). Also retested against a
+Pi-sized model, `llama3.2:1b` (now the `.env.example` default) -- clean
+one-sentence answers, correct SSE, sub-5s on the Mac. PENDING: the wire-pod + robot
+leg (say "Hey Vector, I have a question" with `LLM_BACKEND=ollama`) -- shares the
+same hardware step as P3-03, so it closes "one local + one cloud" in one sitting.
+Mark done after that passes.
 
 ### P3-06  TARS persona + conversation memory in the gateway  [ ]  (TARS Phase B)
 Goal: give Vector a character-card-style persona (system prompt) and multi-turn

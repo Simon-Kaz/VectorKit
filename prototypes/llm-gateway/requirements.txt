@@ -1,4 +1,5 @@
 # Self-contained deps for the gateway prototype (root pyproject stays dep-free).
 fastapi
 uvicorn[standard]
-anthropic
+httpx          # ollama backend talks to /api/chat; also used by anthropic
+anthropic      # only imported by the claude backend (LLM_BACKEND=claude)
