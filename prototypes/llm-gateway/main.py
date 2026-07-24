@@ -104,6 +104,12 @@ class OllamaBackend:
             "model": self.model,
             "messages": messages,
             "stream": True,
+            # Disable thinking: reasoning models (gemma4, deepseek-r1, ...) would
+            # otherwise spend the whole num_predict budget on `thinking` tokens
+            # and stream NO `content` -- Vector would say nothing. Omitting
+            # thinking also keeps spoken replies low-latency (same call we make
+            # on the claude path). Silently ignored by non-thinking models.
+            "think": False,
             "options": {"num_predict": max_tokens},
         }
         # No timeout: a cold model load or a long answer can take a while, and

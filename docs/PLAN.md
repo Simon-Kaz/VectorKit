@@ -392,10 +392,15 @@ STATUS 2026-07-12: code landed. The gateway now selects `claude` or `ollama` via
 `LLM_BACKEND`, both behind one interface (`.model` + async `stream()`); the
 Anthropic client/import is claude-only, so a pure-local Ollama host runs with no
 API key and without `anthropic` installed (both verified). SSE framing verified
-via TestClient. `make check` green. PENDING: the on-hardware voice test (robot +
-a running Ollama server) -- shares the same pending hardware step as P3-03, so
-verifying P3-05 with `LLM_BACKEND=ollama` closes P3-03's "one local + one cloud"
-in the same sitting. Mark done after that test passes.
+via TestClient. `make check` green.
+VERIFIED 2026-07-24: gateway -> Ollama half tested for real on the dev Mac against
+`gemma4` (Ollama 0.31.2) -- streamed a correct one-sentence spoken answer as OpenAI
+SSE (role -> content -> stop -> [DONE]). Found + fixed: reasoning models spend the
+whole num_predict budget on `thinking` and emit no `content`, so the gateway now
+sends `think: false` (no-op on non-thinking models). PENDING: the wire-pod + robot
+leg (say "Hey Vector, I have a question" with `LLM_BACKEND=ollama`) -- shares the
+same hardware step as P3-03, so it closes "one local + one cloud" in one sitting.
+Mark done after that passes.
 
 ### P3-06  TARS persona + conversation memory in the gateway  [ ]  (TARS Phase B)
 Goal: give Vector a character-card-style persona (system prompt) and multi-turn

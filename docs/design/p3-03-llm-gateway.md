@@ -74,6 +74,11 @@ which is exactly the bridge the native SDK is for.
   `claude-opus-4-8` as the richer-answer switch.
 - *ollama* -- a local Ollama server's `/api/chat` (default model `llama3.2`, via
   `OLLAMA_HOST`/`OLLAMA_MODEL`). No API key; the transcript never leaves the LAN.
+  Sends `think: false` so reasoning models (gemma4, deepseek-r1) answer directly
+  -- without it they spend the whole `num_predict` budget on hidden `thinking`
+  tokens and stream no `content`, so Vector would say nothing. Non-thinking
+  models ignore the flag. This mirrors the "omit thinking" choice on the claude
+  path.
 
 Claude shipped in Phase A (P3-03); Ollama was added in P3-05, satisfying the
 task's "one local + one cloud, switchable by config" for real (cloud <-> local
