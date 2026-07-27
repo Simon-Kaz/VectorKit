@@ -442,7 +442,12 @@ Goal: give Vector a TARS-style custom wake word using escape-pod/wire-pod's
 existing custom wake-word option (viable today -- not firmware-locked). Polish
 item. Done when: Vector wakes to the chosen phrase.
 
-### P3-09  Make the Pi Ollama + gateway always-on  [ ]
+### P3-09  Make the Pi Ollama + gateway always-on  [x]
+OUTCOME: `vector-llm-gateway.service` (in `prototypes/llm-gateway/`) installed on
+the Pi -- `After/Wants=ollama.service`, `Restart=always`, enabled. After a full
+reboot ollama + vector-llm-gateway + wire-pod all auto-start and Vector answers
+"Hey Vector, I have a question" by voice with the local backend. No manual steps.
+
 Goal: the local voice brain should survive a reboot without manual steps. From
 the P3-05 hardware session, Ollama runs as a systemd service (`ollama`, user
 `ollama`) but the gateway was launched by hand under `nohup` (uvicorn on :8088,

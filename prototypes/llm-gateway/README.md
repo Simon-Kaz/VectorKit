@@ -57,6 +57,23 @@ wire-pod pointed at `http://<mac-ip>:8088/v1`, then move it to the Pi as a
 systemd service. The API key (claude backend) lives in a gitignored `.env` on
 whichever host runs it.
 
+## Always-on (systemd, on the Pi)
+
+`vector-llm-gateway.service` in this dir is the unit that keeps the gateway
+running across reboots. It assumes the venv + `.env` set up above, and starts
+after `ollama.service`. Install it (paths in the unit expect
+`/home/vector/VectorKit/prototypes/llm-gateway`):
+
+```sh
+sudo install -m 0644 vector-llm-gateway.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now vector-llm-gateway
+curl -s http://localhost:8088/healthz    # {"ok":true,"backend":...,"model":...}
+```
+
+After `LLM_BACKEND` / model changes in `.env`, `sudo systemctl restart
+vector-llm-gateway`. Ollama itself already runs as its own systemd service.
+
 ## Point wire-pod at it (one-time, no code change)
 
 Set the knowledge-graph config to the `custom` provider -- web UI at
