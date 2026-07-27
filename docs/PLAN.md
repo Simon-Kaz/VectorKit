@@ -423,7 +423,16 @@ to SD swap alongside wire-pod, so `qwen2.5:0.5b` (~1.2 GB resident, ~7s cold /
 ~1s warm) is what fits -- `.env.example` default updated accordingly. Follow-ups
 added: P3-09 (make Ollama + gateway always-on systemd services on the Pi).
 
-### P3-06  TARS persona + conversation memory in the gateway  [ ]  (TARS Phase B)
+### P3-06  TARS persona + conversation memory in the gateway  [x]  (TARS Phase B)
+OUTCOME: gateway now loads a `persona.md` character card (PERSONA_FILE) that
+REPLACES wire-pod's system turn, and holds a global rolling memory window
+(MEMORY_TURNS exchanges, MEMORY_IDLE_TIMEOUT reset) so Vector answers in a
+consistent persona and can reference an earlier turn. Backend-agnostic
+(`conversation.py`, before `backend.stream()`), so both claude + ollama inherit
+it. Unit-tested + verified end-to-end via TestClient with a stub backend. By-voice
+confirm on the Pi is an owner-driven follow-up. See
+`docs/design/p3-06-persona-memory.md`.
+
 Goal: give Vector a character-card-style persona (system prompt) and multi-turn
 conversation memory, both held in the gateway. wire-pod keeps only ~16 messages;
 the gateway is the right home. Models the persona/memory that `TARS-AI` ships.

@@ -17,6 +17,12 @@ editing the env and restarting -- wire-pod needs no change. The Anthropic
 client is only constructed for the claude backend, so a pure-local Ollama host
 needs no API key. See docs/design/p3-03-llm-gateway.md.
 
+Persona + conversation memory (P3-06) sit in the endpoint layer, before the
+backend, so both backends inherit them: a character-card persona (PERSONA_FILE)
+replaces wire-pod's system turn, and a global rolling memory window lets Vector
+reference an earlier turn. See conversation.py and
+docs/design/p3-06-persona-memory.md.
+
 Run:
     pip install -r requirements.txt
     export LLM_BACKEND=ollama              # or claude (+ ANTHROPIC_API_KEY)
@@ -31,6 +37,7 @@ import time
 from collections.abc import AsyncIterator
 
 import httpx
+from conversation import Conversation, latest_user, load_persona
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -39,6 +46,20 @@ from fastapi.responses import JSONResponse, StreamingResponse
 BACKEND = os.environ.get("LLM_BACKEND", "claude").lower()
 # Cap output: spoken answers should be short, and it bounds cost/latency.
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "1024"))
+
+# Persona + memory (P3-06), both held here in the gateway. The persona is a
+# character card that REPLACES wire-pod's system turn; memory is one global
+# rolling window (single-user robot, no conversation id in the request). See
+# conversation.py and docs/design/p3-06-persona-memory.md.
+PERSONA_FILE = os.environ.get("PERSONA_FILE", "persona.md")
+# Exchanges (user+reply) of history to keep. Small: the Pi has ~1.2 GB free and
+# a sub-1B model has a tight context. 0 disables memory.
+MEMORY_TURNS = int(os.environ.get("MEMORY_TURNS", "6"))
+# Seconds of silence after which the next question starts a fresh conversation.
+MEMORY_IDLE_TIMEOUT = float(os.environ.get("MEMORY_IDLE_TIMEOUT", "300"))
+
+PERSONA = load_persona(PERSONA_FILE)
+conversation = Conversation(max_turns=MEMORY_TURNS, idle_timeout=MEMORY_IDLE_TIMEOUT)
 
 # Only user/assistant/system turns carry into the backend; anything else in the
 # OpenAI body (tool calls, names) is dropped -- wire-pod never sends them.
@@ -155,21 +176,40 @@ def _chunk(created: int, delta: dict, finish: str | None = None) -> str:
 @app.post("/v1/chat/completions")
 async def chat_completions(req: Request) -> StreamingResponse:
     body = await req.json()
-    messages = _messages(body)
     max_tokens = min(int(body.get("max_tokens", MAX_TOKENS)), MAX_TOKENS)
     created = int(time.time())
+
+    # Persona + memory both live in the gateway (P3-06). We take only wire-pod's
+    # newest question and rebuild the context from the gateway's own rolling
+    # history, so the reply is in-persona and can reference an earlier turn.
+    user = latest_user(_messages(body))
+    messages = conversation.build(PERSONA, user, created) if user else _messages(body)
 
     async def sse() -> AsyncIterator[str]:
         # First chunk announces the assistant role (OpenAI convention).
         yield _chunk(created, {"role": "assistant"})
+        reply: list[str] = []
         async for text in backend.stream(messages, max_tokens):
+            reply.append(text)
             yield _chunk(created, {"content": text})
         yield _chunk(created, {}, finish="stop")
         yield "data: [DONE]\n\n"
+        # Record the completed exchange only after a successful stream, so a
+        # failed generation does not poison the history with a half reply.
+        if user:
+            conversation.record(user, "".join(reply), created)
 
     return StreamingResponse(sse(), media_type="text/event-stream")
 
 
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    return JSONResponse({"ok": True, "backend": BACKEND, "model": backend.model})
+    return JSONResponse(
+        {
+            "ok": True,
+            "backend": BACKEND,
+            "model": backend.model,
+            "persona": bool(PERSONA),
+            "memory_turns": MEMORY_TURNS,
+        }
+    )
