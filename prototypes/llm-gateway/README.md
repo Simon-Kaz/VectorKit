@@ -17,7 +17,13 @@ Switch backend or model by editing one env var and restarting -- wire-pod never
 changes. That config-only swap is the "pluggable backend" the task asks for, and
 `claude` <-> `ollama` is the "one cloud + one local" pair (P3-05).
 
-Design + rationale: `docs/design/p3-03-llm-gateway.md`.
+Persona + conversation memory (P3-06) sit in front of both backends: a
+character-card persona (`persona.md`) replaces wire-pod's system prompt, and a
+rolling memory window lets Vector reference an earlier turn in the same
+conversation. Both are config, no wire-pod change. See "Persona + memory" below.
+
+Design + rationale: `docs/design/p3-03-llm-gateway.md` (gateway),
+`docs/design/p3-06-persona-memory.md` (persona + memory).
 
 ## How it fits in
 
@@ -74,6 +80,26 @@ curl -s http://localhost:8088/healthz    # {"ok":true,"backend":...,"model":...}
 After `LLM_BACKEND` / model changes in `.env`, `sudo systemctl restart
 vector-llm-gateway`. Ollama itself already runs as its own systemd service.
 
+## Persona + memory (P3-06)
+
+Both live in the gateway, in front of whichever backend is selected, so they
+apply to `claude` and `ollama` alike. Config in `.env` (see `.env.example`):
+
+- `PERSONA_FILE` (default `persona.md`) -- a character card loaded at startup.
+  It **replaces** any system prompt wire-pod sends, so the gateway owns Vector's
+  character. Edit `persona.md` and restart the gateway to change it. Set
+  wire-pod's `openai_prompt` empty to avoid a stale second persona. A missing or
+  blank file = no persona (the pre-P3-06 behavior).
+- `MEMORY_TURNS` (default 6) -- exchanges of history kept in a rolling window so
+  Vector can reference an earlier turn. `0` disables memory. Kept small for the
+  2 GB Pi. In-memory only: resets on gateway restart.
+- `MEMORY_IDLE_TIMEOUT` (default 300s) -- silence after which the next question
+  starts a fresh conversation (there is no per-conversation id to key on -- the
+  robot is single-user).
+
+`curl http://localhost:8088/healthz` reports `persona` (bool) and `memory_turns`.
+Design + rationale: `docs/design/p3-06-persona-memory.md`.
+
 ## Point wire-pod at it (one-time, no code change)
 
 Set the knowledge-graph config to the `custom` provider -- web UI at
@@ -117,5 +143,6 @@ Trigger the LLM path with "Hey Vector, I have a question".
 
 ## Not in this prototype
 
-Persona + conversation memory (P3-06), vision (P3-07), and LLM-driven robot
-actions are deliberately out of scope -- see the design note's roadmap.
+Vision (P3-07) and LLM-driven robot actions are deliberately out of scope -- see
+the design note's roadmap. Persona + conversation memory shipped in P3-06 (see
+"Persona + memory" above).

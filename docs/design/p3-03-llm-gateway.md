@@ -192,7 +192,8 @@ it only through wire-pod's voice path + the gRPC SDK):
 - **P3-05:** Ollama (local) backend added to the gateway via `LLM_BACKEND` --
   the deferred half of "one local + one cloud." Shipped.
 - **Phase B (P3-06):** TARS-style persona + conversation memory held in the
-  gateway (wire-pod keeps only ~16 messages).
+  gateway (wire-pod keeps only ~16 messages). Shipped -- see
+  `docs/design/p3-06-persona-memory.md`.
 - **Phase C (P3-07):** SDK-driven vision prototype -- gRPC camera frame -> vision
   model -> Vector speaks what it sees. Independent of the voice path.
 - **P3-08:** custom "Hey X" wake word via escape-pod's existing option.
