@@ -496,6 +496,31 @@ window. Needs a design pass: embedding model + store choice, and the RAM budget
 on the 2 GB Pi alongside wire-pod (may be Claude-backend-only, or an external
 store). Deferred from P3-06 on purpose. Lower priority than the character card.
 
+### P3-13  Swap Vector's spoken voice (TTS)  [ ]
+Goal: make Vector speak in a different voice. Feasibility done (design note
+`docs/design/p3-13-voice-swap.md`): the voice is firmware TTS via `SayText` and
+cannot be picked through it, BUT our wire-pod fork already ships the raw-audio
+path -- `DoSayText_OpenAI` synthesizes text with an external TTS engine and
+streams PCM to the speaker via `ExternalAudioStreamPlayback`. So firmware swap
+(path 3) is ruled out; a different voice is doable with config alone (OpenAI TTS)
+or a fork change (local Piper / ElevenLabs / Azure) reusing the same audio path.
+Recommendation: prove it end-to-end with OpenAI TTS first (set `openai_voice` +
+`openai_voice_with_english: true` + a real OpenAI key in `Knowledge.Key`; our
+gateway ignores the key so the chat call is unaffected), then optionally follow
+with self-hosted Piper. Needs: an OpenAI key (owner) and a live-robot test (owner
+authorization). Pi has headroom for local TTS but Piper latency is unmeasured.
+TESTED 2026-07-27 (live robot): the full path works; both keys tried failed at
+OpenAI (`OPENAI_API_KEY_VOICE` = valid key but 429 no-quota; `OPENAI_API_KEY` =
+401, a `zdai_` non-OpenAI key). Need a funded OpenAI account to hear option A.
+Bug found: `DoSayText_OpenAI` has no `SayText` fallback, so a TTS error mutes the
+robot -- any external-TTS path must fall back on error. Piper (option B)
+benchmarked standalone on the Pi 2026-07-27 (lessac-medium, RTF 0.37, ~2.7x
+realtime, good quality) -- VIABLE and self-hosted. Recommended target. Robot speaker
+accepts only 8000-16025 Hz/16-bit/mono (SDK `audio.py:106`), so lessac-medium's
+22050 Hz MUST be resampled to 16 kHz (or use a native-16 kHz "low" voice). Next:
+wire-pod fork change (persistent Piper proc, 22050->16000 resample, stream via
+`ExternalAudioStreamPlayback`, `SayText` fallback on error).
+
 (Add prototype ideas here as they come up.)
 
 ---
