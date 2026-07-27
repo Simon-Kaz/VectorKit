@@ -476,16 +476,17 @@ speaks a Claude answer -- proving the cloud<->local swap is a one-env-var change
 on real hardware. The SSE path is already verified; this is the by-voice
 confirmation. Optional / low priority.
 
-### P3-11  TARS-style character card persona  [~]
-Goal: bring the gateway persona closer to what `TARS-AI` ships -- replace the
-flat `persona.md` string with a structured character card (name, persona,
-speaking style, and few-shot `example_dialogue`) plus optional user identity,
-composed into the system prompt with the examples injected as real user/
-assistant turns before the rolling history. Few-shot examples are the biggest
-lever for holding a tiny local model (qwen2.5:0.5b) in character -- the flat
-persona alone left it loose ("like your parents and grandparents"). Builds on
-P3-06; pure gateway work. Done when: the card drives Vector's voice and the
-example turns measurably tighten the persona at the local model size.
+### P3-11  TARS-style character card persona  [x]
+OUTCOME: gateway now loads a structured `character.json` card (name / persona /
+speaking_style / user identity + few-shot `example_dialogue`), TARS-AI-style,
+composed into the system prompt with the example turns injected before the
+rolling history (`load_persona` -> `Persona`, `Conversation.build`). Non-JSON
+files still work as a flat prompt (backward compatible). PR #20, merged.
+On-Pi (qwen2.5:0.5b) the few-shot examples visibly tightened the voice ("I'm a
+desk robot, not an accountant") vs the pre-card drift, and cross-turn memory
+recalled the user's name -- but the 0.5B model still sometimes confuses the
+user's name with its own (role-tracking is model-size-bound, not a gateway bug;
+a larger local model or the claude backend clears it). Deployed to the Pi.
 
 ### P3-12  Long-term RAG memory in the gateway  [ ]
 Goal: add persistent long-term memory like `TARS-AI`'s hybrid retrieval
