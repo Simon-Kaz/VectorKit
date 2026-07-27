@@ -516,9 +516,10 @@ Bug found: `DoSayText_OpenAI` has no `SayText` fallback, so a TTS error mutes th
 robot -- any external-TTS path must fall back on error. Piper (option B)
 benchmarked standalone on the Pi 2026-07-27 (lessac-medium, RTF 0.37, ~2.7x
 realtime, good quality) -- VIABLE and self-hosted. Recommended target. Robot speaker
-accepts only 8000-16025 Hz/16-bit/mono (SDK `audio.py:106`), so lessac-medium's
-22050 Hz MUST be resampled to 16 kHz (or use a native-16 kHz "low" voice). Next:
-wire-pod fork change (persistent Piper proc, 22050->16000 resample, stream via
+accepts only 8000-16025 Hz/16-bit/mono (SDK `audio.py:106`). Voice chosen:
+`en_US-danny-low` (US male), 16 kHz native so NO resample needed (the 7 English
+"low" voices are 16 kHz; all medium/high are 22050 Hz). Next: wire-pod fork
+change (persistent Piper proc running danny, stream via
 `ExternalAudioStreamPlayback`, `SayText` fallback on error).
 
 (Add prototype ideas here as they come up.)

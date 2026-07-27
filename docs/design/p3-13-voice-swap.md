@@ -113,12 +113,24 @@ Read-only inspection of `vector-pod.local` (2026-07-27):
     enforced in the SDK, `anki_vector/audio.py:106`, and the reason wire-pod's
     OpenAI path has a `downsample24kTo16k` step). 22050 Hz exceeds the 16025 Hz
     ceiling, so a resample to 16 kHz is REQUIRED for lessac-medium.
-    Alternative: Piper "low"-quality voices are typically 16 kHz native, which
-    would fit the window and avoid resampling at the cost of voice quality --
-    a lead to confirm, not yet verified on our Pi.
+    Alternative (CONFIRMED): Piper's "low"-quality English voices are 16 kHz
+    native, which fits the window and avoids resampling at the cost of voice
+    quality. Verified against the Piper catalog -- exactly the 7 English "low"
+    voices are 16 kHz (`en_US-{amy,danny,kathleen,lessac,ryan}-low`,
+    `en_GB-alan-low`, `en_GB-southern_english_female-low`); all 31 medium/high
+    English voices are 22050 Hz and would need resampling.
   - Quality (lessac-medium) is good; sample WAV reviewed on the owner's Mac.
   - Verdict: option B is VIABLE on the 2 GB Pi. The open item is a persistent
-    Piper process/service (avoid the 1 s load per call) and the resample step.
+    Piper process/service (avoid the 1 s load per call).
+
+## Voice selected: en_US-danny-low
+
+Samples of all 7 native-16 kHz English "low" voices were synthesized on the Pi
+(same phrase) and auditioned on the owner's Mac. Chosen: **`en_US-danny-low`**
+(US male). Being 16 kHz native, it drops straight into the robot's 8000-16025 Hz
+window with NO resampling, which also simplifies the fork change. Tradeoff
+accepted: "low" quality is a notch rougher than lessac-medium, in exchange for no
+resample step.
 
 ## Recommendation
 
@@ -131,10 +143,9 @@ end-to-end (near-zero code) IF a funded key appears, and it already proved the
 `ExternalAudioStreamPlayback` streaming works.
 
 Next step for B: build the wire-pod fork change -- a Piper branch in `DoSayText`
-that runs a persistent Piper process, gets audio into the robot's 8000-16025 Hz
-window (resample lessac-medium 22050->16000, OR use a native-16 kHz "low" voice),
-streams via `ExternalAudioStreamPlayback`, and (per the bug below) falls back to
-`SayText` on any TTS error.
+that runs a persistent Piper process with `en_US-danny-low` (16 kHz, no resample
+needed), streams via `ExternalAudioStreamPlayback`, and (per the bug below) falls
+back to `SayText` on any TTS error.
 
 Requires an OpenAI API key (owner to provide) and a live-robot test -- both need
 owner authorization before running.
