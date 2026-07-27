@@ -496,7 +496,7 @@ window. Needs a design pass: embedding model + store choice, and the RAM budget
 on the 2 GB Pi alongside wire-pod (may be Claude-backend-only, or an external
 store). Deferred from P3-06 on purpose. Lower priority than the character card.
 
-### P3-13  Swap Vector's spoken voice (TTS)  [ ]
+### P3-13  Swap Vector's spoken voice (TTS)  [x]
 Goal: make Vector speak in a different voice. Feasibility done (design note
 `docs/design/p3-13-voice-swap.md`): the voice is firmware TTS via `SayText` and
 cannot be picked through it, BUT our wire-pod fork already ships the raw-audio
@@ -521,8 +521,36 @@ accepts only 8000-16025 Hz/16-bit/mono (SDK `audio.py:106`). Voice chosen:
 "low" voices are 16 kHz; all medium/high are 22050 Hz). Next: wire-pod fork
 change (persistent Piper proc running danny, stream via
 `ExternalAudioStreamPlayback`, `SayText` fallback on error).
+DONE 2026-07-27: implemented Piper (option B) in a fork of `kercre123/wire-pod`
+(`Simon-Kaz/wire-pod`, PR #1, merged `c5a8f43`). New `DoSayText_Piper` mirrors
+the OpenAI raw-audio path; gated on a `piper_enable` config flag (+ `piper_binary`,
+`piper_voice`), default off. `DoSayText` now falls back to `SayText` on any
+external-TTS error (retro-fixes the silent-robot bug). Piper 1.2.0 +
+`en_US-danny-low` installed at `/opt/piper` on the Pi. Live-tested on the robot:
+danny voice on the LLM answer + fallback to stock voice on Piper error (both
+confirmed). Deploy gotcha: `start.sh` runs a prebuilt `./chipper` if present, so
+source edits need a rebuild (`go build -o chipper cmd/vosk/main.go`) -- captured
+in the PR. Follow-ups: P3-14 (persistent Piper proc), P3-15 (firmware "ready" ack
+stays stock voice).
 
 (Add prototype ideas here as they come up.)
+
+### P3-14  Persistent Piper process for TTS  [ ]
+Goal: avoid the ~1s Piper model-load per utterance. P3-13 ships a spawn-per-call
+Piper (`runPiper` in the wire-pod fork's `kgsim_cmds.go`) -- simple and robust, and
+latency was acceptable in the live test, but each call reloads the danny model.
+Piper supports streaming stdin->stdout; keep one long-lived process and feed it
+lines. Done when: a persistent Piper proc serves TTS with no per-utterance model
+load and the `SayText` fallback still fires on error.
+
+### P3-15  Swap the firmware "ready" acknowledgment voice  [ ]
+Goal (stretch/likely-not-worth-it): when `intent_knowledge_promptquestion` fires,
+Vector says "ready" in its STOCK voice before capturing the question. That ack is
+firmware TTS, NOT routed through wire-pod's `DoSayText`, so P3-13's voice swap
+does not touch it. Changing it would require intercepting firmware TTS (the
+ruled-out path 3 from `docs/design/p3-13-voice-swap.md`). Documented as a known
+cosmetic limitation; only pursue if firmware-level audio interception becomes
+viable.
 
 ---
 
