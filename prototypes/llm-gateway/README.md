@@ -85,11 +85,18 @@ vector-llm-gateway`. Ollama itself already runs as its own systemd service.
 Both live in the gateway, in front of whichever backend is selected, so they
 apply to `claude` and `ollama` alike. Config in `.env` (see `.env.example`):
 
-- `PERSONA_FILE` (default `persona.md`) -- a character card loaded at startup.
-  It **replaces** any system prompt wire-pod sends, so the gateway owns Vector's
-  character. Edit `persona.md` and restart the gateway to change it. Set
-  wire-pod's `openai_prompt` empty to avoid a stale second persona. A missing or
-  blank file = no persona (the pre-P3-06 behavior).
+- `PERSONA_FILE` (default `character.json`) -- a character card loaded at
+  startup. It **replaces** any system prompt wire-pod sends, so the gateway owns
+  Vector's character. Set wire-pod's `openai_prompt` empty to avoid a stale
+  second persona. A missing or blank file = no persona (the pre-P3-06 behavior).
+  - A **`.json`** file is a structured card (P3-11), modelled on what TARS-AI
+    ships: `name`, `persona`, `speaking_style`, optional `user_name` /
+    `user_details`, and `example_dialogue` (a list of `{"user","assistant"}`
+    pairs). The example turns are injected as real few-shot messages before the
+    conversation -- the biggest lever for holding a small local model in
+    character. Edit `character.json` and restart the gateway to change it.
+  - Any **non-JSON** file is used verbatim as the system prompt (a flat persona
+    string), backward compatible with the original P3-06 `persona.md`.
 - `MEMORY_TURNS` (default 6) -- exchanges of history kept in a rolling window so
   Vector can reference an earlier turn. `0` disables memory. Kept small for the
   2 GB Pi. In-memory only: resets on gateway restart.

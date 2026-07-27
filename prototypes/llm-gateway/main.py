@@ -51,7 +51,7 @@ MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "1024"))
 # character card that REPLACES wire-pod's system turn; memory is one global
 # rolling window (single-user robot, no conversation id in the request). See
 # conversation.py and docs/design/p3-06-persona-memory.md.
-PERSONA_FILE = os.environ.get("PERSONA_FILE", "persona.md")
+PERSONA_FILE = os.environ.get("PERSONA_FILE", "character.json")
 # Exchanges (user+reply) of history to keep. Small: the Pi has ~1.2 GB free and
 # a sub-1B model has a tight context. 0 disables memory.
 MEMORY_TURNS = int(os.environ.get("MEMORY_TURNS", "6"))

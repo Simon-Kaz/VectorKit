@@ -476,6 +476,25 @@ speaks a Claude answer -- proving the cloud<->local swap is a one-env-var change
 on real hardware. The SSE path is already verified; this is the by-voice
 confirmation. Optional / low priority.
 
+### P3-11  TARS-style character card persona  [~]
+Goal: bring the gateway persona closer to what `TARS-AI` ships -- replace the
+flat `persona.md` string with a structured character card (name, persona,
+speaking style, and few-shot `example_dialogue`) plus optional user identity,
+composed into the system prompt with the examples injected as real user/
+assistant turns before the rolling history. Few-shot examples are the biggest
+lever for holding a tiny local model (qwen2.5:0.5b) in character -- the flat
+persona alone left it loose ("like your parents and grandparents"). Builds on
+P3-06; pure gateway work. Done when: the card drives Vector's voice and the
+example turns measurably tighten the persona at the local model size.
+
+### P3-12  Long-term RAG memory in the gateway  [ ]
+Goal: add persistent long-term memory like `TARS-AI`'s hybrid retrieval
+(vector + BM25, top_k, seeded from an initial-memory file) so Vector recalls
+facts across conversations and restarts -- beyond P3-06's in-memory rolling
+window. Needs a design pass: embedding model + store choice, and the RAM budget
+on the 2 GB Pi alongside wire-pod (may be Claude-backend-only, or an external
+store). Deferred from P3-06 on purpose. Lower priority than the character card.
+
 (Add prototype ideas here as they come up.)
 
 ---

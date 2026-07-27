@@ -80,9 +80,41 @@ cases. Verified end-to-end with a stub backend through FastAPI's TestClient:
 turn 2's context carries turn 1, and the persona replaces wire-pod's system
 turn. By-voice confirmation on the Pi is an owner-driven follow-up.
 
+## P3-11: TARS-style character card (2026-07-27)
+
+The flat P3-06 `persona.md` string held the persona but left a sub-1B local
+model (`qwen2.5:0.5b`) loose in character -- on the Pi it drifted ("I am a small
+desk robot like your parents and grandparents"). TARS-AI ships a structured
+character card (`character/TARS/TARS.json`, ZoltanAI schema: `char_persona`,
+`char_greeting`, `example_dialogue`, ...) plus `user_name` / `user_details`.
+P3-11 brings that shape into the gateway.
+
+`load_persona` now returns a `Persona` (a composed `system` string + a list of
+few-shot `examples`):
+- A **`.json`** file is parsed as a card. `_compose_system` builds the system
+  prompt from `name` / `persona` / `speaking_style` / user identity;
+  `_card_examples` turns `example_dialogue` (`{"user","assistant"}` pairs) into
+  real user/assistant message turns.
+- Any **non-JSON** file (or invalid JSON) is used verbatim as the system prompt
+  -- backward compatible with the flat P3-06 persona.
+
+`Conversation.build` injects the example turns *between* the system prompt and
+the rolling history: `[system] + [few-shot examples] + [history] + [question]`.
+The examples are constant priming, so they are never written into history
+(`record` only stores real exchanges). Few-shot demonstration is the strongest
+lever for tone/length at this model size -- more effective than lengthening the
+system prompt. Fields kept to what a spoken, single-user robot needs (no
+greeting/`first_mes`, since wire-pod, not the gateway, opens the interaction).
+
+The default card is `character.json`; `PERSONA_FILE` selects it. Tested in
+`test_conversation.py` (card compose, user identity, example->turns, minimal
+card, invalid-JSON fallback, examples-not-stored) and end-to-end via TestClient.
+
 ## Follow-ups
 
 - By-voice confirmation on the Pi (deploy: `git pull` + `sudo systemctl restart
   vector-llm-gateway`, set wire-pod's `openai_prompt` empty).
 - If a second concurrent speaker ever matters, revisit keying -- but that needs
   a conversation id wire-pod does not currently send.
+- Long-term / cross-conversation memory (RAG, like TARS-AI's hybrid retrieval)
+  is deliberately out of scope here -- tracked as P3-12.
