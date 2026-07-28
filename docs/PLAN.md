@@ -535,13 +535,20 @@ stays stock voice).
 
 (Add prototype ideas here as they come up.)
 
-### P3-14  Persistent Piper process for TTS  [ ]
+### P3-14  Persistent Piper process for TTS  [x]
 Goal: avoid the ~1s Piper model-load per utterance. P3-13 ships a spawn-per-call
 Piper (`runPiper` in the wire-pod fork's `kgsim_cmds.go`) -- simple and robust, and
 latency was acceptable in the live test, but each call reloads the danny model.
 Piper supports streaming stdin->stdout; keep one long-lived process and feed it
 lines. Done when: a persistent Piper proc serves TTS with no per-utterance model
 load and the `SayText` fallback still fires on error.
+DONE 2026-07-28: `Simon-Kaz/wire-pod` PR #2. New `piper.go` (`piperSynth`) keeps
+one long-lived Piper process in WAV mode (`-f -`), mutex-serialized, lazily
+started, respawned on death/config-change; reads one WAV per line (framed by the
+RIFF data-chunk size). Model loads once, reused across the per-sentence
+`DoSayText` calls. Live-tested: started once + reused, auto-respawned after a
+kill, fallback intact. Remaining latency is the local LLM gateway, not Piper.
+Full replicate/migrate recipe: `infra/wire-pod/piper-voice.md`.
 
 ### P3-15  Swap the firmware "ready" acknowledgment voice  [ ]
 Goal (stretch/likely-not-worth-it): when `intent_knowledge_promptquestion` fires,
