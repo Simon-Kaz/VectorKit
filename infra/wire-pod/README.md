@@ -69,6 +69,11 @@ sudo journalctl -u wire-pod -n 20
 
 Onboard the robot: `../../docs/setup-vector.md`.
 
+## Custom voice (Piper TTS)
+
+We run one custom change on top of upstream: a local Piper voice for Vector's
+spoken answers. Install, deploy, and migration steps are in `piper-voice.md`.
+
 ## Notes
 
 - Keep the Pi on a static DHCP lease so the web UI address is stable.
